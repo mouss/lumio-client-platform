@@ -1,77 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormState } from "react-dom";
+import {
+  Alerte,
+  BoutonEnvoyer,
+  BOUTON_PRINCIPAL,
+  CHAMP,
+  Erreur,
+  erreursDe,
+  Succes,
+  type Action,
+} from "./champs";
 import type { EtatFormulaire } from "./actions";
 
 const VIDE: EtatFormulaire = { erreurs: {} };
-
-const CHAMP =
-  "rounded-md border border-lumio-white/15 bg-white/[0.03] px-3 py-2 text-lumio-white outline-none focus:border-lumio-blue-light";
-
-const BOUTON_PRINCIPAL =
-  "rounded-md bg-lumio-blue-light px-4 py-2 text-sm font-medium text-lumio-black transition-colors hover:bg-lumio-blue hover:text-lumio-white disabled:cursor-not-allowed disabled:opacity-50";
-
-type Action = (
-  etat: EtatFormulaire,
-  donnees: FormData,
-) => Promise<EtatFormulaire>;
-
-/*
-  useFormState peut rendre undefined pendant une transition. Lire erreurs sur l'etat brut
-  casse alors le rendu : on normalise systematiquement a l'entree de chaque formulaire.
-*/
-function erreursDe(etat: EtatFormulaire | undefined): Record<string, string> {
-  return etat?.erreurs ?? {};
-}
-
-function Erreur({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  return <span className="text-xs text-red-300">{message}</span>;
-}
-
-function Succes({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <p
-      role="status"
-      className="rounded-md border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300"
-    >
-      {message}
-    </p>
-  );
-}
-
-export function Alerte({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <p
-      role="alert"
-      className="rounded-md border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300"
-    >
-      {message}
-    </p>
-  );
-}
-
-function BoutonEnvoyer({ libelle }: { libelle: string }) {
-  const { pending } = useFormStatus();
-
-  return (
-    <button type="submit" disabled={pending} className={BOUTON_PRINCIPAL}>
-      {pending ? "Enregistrement..." : libelle}
-    </button>
-  );
-}
 
 type ClientModifiable = {
   id: string;

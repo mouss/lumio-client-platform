@@ -4,11 +4,19 @@ import { prisma } from "@/lib/prisma";
 import { formatDateHeure } from "@/lib/format";
 import { libelleStatut, teinteStatut } from "@/lib/statuts";
 import { urlPublique } from "@/lib/urls";
-import { marquerAuditFait, remplacerFichierAudit } from "./actions";
+import {
+  creerOffre,
+  enregistrerRestitution,
+  envoyerOffreParEmail,
+  marquerAuditFait,
+  remplacerFichierAudit,
+} from "./actions";
 import {
   FormulaireAuditFait,
   FormulaireRemplacementFichier,
 } from "./formulaires";
+import { SectionRestitution } from "./restitution";
+import { SectionOffre } from "./offre";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +34,23 @@ function Ligne({
       </dt>
       <dd className="text-sm text-lumio-white/80">{valeur}</dd>
     </div>
+  );
+}
+
+function Section({
+  titre,
+  children,
+}: {
+  titre: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-6 rounded-lg border border-lumio-white/10 bg-white/[0.02] p-6">
+      <h2 className="text-sm font-medium uppercase tracking-wider text-lumio-white/40">
+        {titre}
+      </h2>
+      {children}
+    </section>
   );
 }
 
@@ -48,8 +73,26 @@ export default async function PageClient({
       statut: true,
       calendlyEventUri: true,
       fichierAuditNom: true,
-      fichierAuditChemin: true,
-      createdAt: true,
+      restitution: {
+        select: {
+          syntheseDiagnostic: true,
+          opportunites: true,
+          roiEstime: true,
+          recommandation: true,
+        },
+      },
+      offres: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          titre: true,
+          montant: true,
+          statut: true,
+          dateEnvoi: true,
+          modaliteFacturement: true,
+          lienPaiement: true,
+        },
+      },
     },
   });
 
@@ -58,6 +101,26 @@ export default async function PageClient({
   }
 
   const lienFichier = `/api/admin/clients/${client.id}/fichier-audit`;
+  const lienProposition = urlPublique(`/offres/${client.token}`);
+
+  // Une restitution se verrouille des qu'une offre est partie chez le prospect.
+  const restitutionVerrouillee = client.offres.some(
+    (offre) => offre.dateEnvoi !== null,
+  );
+
+  const restitution = client.restitution
+    ? {
+        syntheseDiagnostic: client.restitution.syntheseDiagnostic,
+        // Le champ est du Json : on ne fait confiance qu'a un tableau de chaines.
+        opportunites: Array.isArray(client.restitution.opportunites)
+          ? client.restitution.opportunites.filter(
+              (element): element is string => typeof element === "string",
+            )
+          : [],
+        roiEstime: client.restitution.roiEstime,
+        recommandation: client.restitution.recommandation,
+      }
+    : null;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
@@ -85,11 +148,7 @@ export default async function PageClient({
         </span>
       </div>
 
-      <section className="mt-8 rounded-lg border border-lumio-white/10 bg-white/[0.02] p-6">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-lumio-white/40">
-          Coordonnées
-        </h2>
-
+      <Section titre="Coordonnées">
         <dl className="mt-4 grid gap-5 sm:grid-cols-2">
           <Ligne libelle="Email" valeur={client.email} />
           <Ligne libelle="Téléphone" valeur={client.telephone ?? "Non renseigné"} />
@@ -99,13 +158,9 @@ export default async function PageClient({
             valeur={client.calendlyEventUri ? "Réservation Calendly" : "Saisie manuelle"}
           />
         </dl>
-      </section>
+      </Section>
 
-      <section className="mt-6 rounded-lg border border-lumio-white/10 bg-white/[0.02] p-6">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-lumio-white/40">
-          Notes d&apos;audit (interne)
-        </h2>
-
+      <Section titre="Notes d'audit (interne)">
         {client.notesAudit ? (
           <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-lumio-white/80">
             {client.notesAudit}
@@ -116,13 +171,9 @@ export default async function PageClient({
             restitution, elles ne sont jamais montrées au client.
           </p>
         )}
-      </section>
+      </Section>
 
-      <section className="mt-6 rounded-lg border border-lumio-white/10 bg-white/[0.02] p-6">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-lumio-white/40">
-          Fichier d&apos;audit brut
-        </h2>
-
+      <Section titre="Fichier d'audit brut">
         {client.fichierAuditNom ? (
           <div className="mt-3">
             <a
@@ -150,31 +201,54 @@ export default async function PageClient({
             comme fait, ou depuis le bouton ci-dessous une fois l&apos;audit fait.
           </p>
         )}
-      </section>
+      </Section>
 
       {client.statut === "RDV_PLANIFIE" ? (
-        <section className="mt-6 rounded-lg border border-lumio-white/10 bg-white/[0.02] p-6">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-lumio-white/40">
-            Après l&apos;échange
-          </h2>
-
+        <Section titre="Après l'échange">
           <div className="mt-4">
             <FormulaireAuditFait client={client} action={marquerAuditFait} />
           </div>
-        </section>
+        </Section>
       ) : null}
 
-      <section className="mt-6 rounded-lg border border-lumio-white/10 bg-white/[0.02] p-6">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-lumio-white/40">
-          Liens à transmettre
-        </h2>
+      <Section titre="Restitution de l'audit">
+        <SectionRestitution
+          clientId={client.id}
+          restitution={restitution}
+          verrouillee={restitutionVerrouillee}
+          action={enregistrerRestitution}
+        />
+      </Section>
 
+      <Section titre="Offre">
+        <SectionOffre
+          clientId={client.id}
+          restitutionExiste={restitution !== null}
+          lienProposition={lienProposition}
+          offres={client.offres.map((offre) => ({
+            id: offre.id,
+            titre: offre.titre,
+            montant: Number(offre.montant),
+            statut: offre.statut,
+            statutLibelle: libelleStatut(offre.statut),
+            dateEnvoiAffichee: offre.dateEnvoi
+              ? formatDateHeure(offre.dateEnvoi)
+              : null,
+            modaliteFacturement: offre.modaliteFacturement,
+            lienPaiement: offre.lienPaiement,
+          }))}
+          actionCreer={creerOffre}
+          actionEnvoyer={envoyerOffreParEmail}
+        />
+      </Section>
+
+      <Section titre="Liens à transmettre">
         <dl className="mt-4 grid gap-4">
           <Ligne
             libelle="Proposition commerciale, avant signature"
             valeur={
               <code className="break-all font-mono text-xs text-lumio-blue-light">
-                {urlPublique(`/offres/${client.token}`)}
+                {lienProposition}
               </code>
             }
           />
@@ -200,7 +274,7 @@ export default async function PageClient({
           Ces pages publiques ne sont pas encore construites : elles affichent
           aujourd&apos;hui un écran d&apos;attente.
         </p>
-      </section>
+      </Section>
     </main>
   );
 }

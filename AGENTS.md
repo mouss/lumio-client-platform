@@ -242,12 +242,16 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 - Un dossier de route dans `app/api/` **ne passe pas** par le layout du groupe protégé. Toute route qui sert une donnée client vérifie la session elle-même, avec la fonction du layout, et cette protection se contrôle au `curl` sans cookie.
 - Un chemin de fichier venu de la base se valide avant lecture ou suppression : chemin résolu, puis vérification qu'il reste sous la racine du dépôt.
 - Une action serveur qui s'exécute depuis la page qu'elle modifie **ne redirige pas vers l'URL courante**. Le formulaire reste monté pendant la transition et `useFormState` reçoit un état `undefined`, ce qui casse le rendu. Vers une autre page, la redirection est sûre. Dans tous les cas, le formulaire normalise l'état reçu (`etat?.erreurs ?? {}`).
+- **Le contenu des offres est figé dans `lib/offres-contenu.ts`** : titre et liste de livrables ne sont jamais lus depuis le formulaire. Motif : garantir qu'aucune génération ne reformule un livrable vendu. Seuls le montant, la description et la modalité restent éditables.
+- Une offre créée referme son formulaire, sinon un second clic crée un doublon. Toute action qui crée un enregistrement depuis un formulaire persistant doit prévoir ce cas.
+- La restitution se verrouille dès qu'une offre porte une `dateEnvoi`. Une restitution ne se réécrit pas en silence après être partie chez un prospect.
+- Le contenu client (restitution, offre) ne contient aucun vocabulaire interne. Les notes d'audit sont internes, la restitution est publique : ne pas les confondre.
 
 ## 7. Écarts et points à trancher
 
 Ces points ont été relevés à la création du projet, le 2026-09-17. Ils ne sont pas bloquants pour écrire du code, mais ils bloquent tout texte affiché à un client.
 
-1. **Tarif de l'Extension Second Cerveau.** Les 500 € HT en upsell et 990 € HT en pack dédié viennent du briefing de Moussa et ne figurent nulle part dans `offres.md` au 2026-09-17. Le vault ne mentionne ni « Second Cerveau » ni « Obsidian » comme offre. À confirmer puis à ajouter au vault avant de l'afficher dans une proposition.
+1. **Tarif et contenu de l'Extension Second Cerveau.** Tranché le 2026-09-17 par Moussa, voir la sous-section « Tranché » ci-dessous.
 2. **Nom du produit.** Le briefing dit « Agent Hermès (Employé IA 24/7) », le vault dit « Pack Quick Win Votre Employé IA 24/7 » basé sur Hermes Agent. Un seul nom doit être retenu pour les documents client.
 3. **Briefing Matinal.** Le briefing le présente comme un livrable nommé du pack. Le vault le présente comme un exemple de cron job (« ex. briefing matinal à 8h00 croisant les e-mails prioritaires, les rendez-vous de la journée et une veille sectorielle »). À aligner si le pack doit être vendu sur ce livrable précis.
 4. **Canal d'accès mobile.** Le vault cite « Telegram, WhatsApp ou Slack ». Le briefing ne cite que Telegram et WhatsApp. Moussa n'utilise pas Slack.
@@ -256,6 +260,7 @@ Ces points ont été relevés à la création du projet, le 2026-09-17. Ils ne s
 ### Tranché
 
 - **2026-09-17, audit payant et premier palier.** Un Audit IA déjà payé ne se déduit jamais du premier palier de 20 % du Sprint. Les deux paiements restent distincts, ils ne se compensent pas. Décision de Moussa. Le `[À trancher]` correspondant a été retiré de `offres.md` dans le vault le 2026-09-17 et remplacé par la décision.
+- **2026-09-17, Extension Second Cerveau.** Titre, accroche, 3 livrables et tarifs (500 € HT en upsell, 990 € HT en pack dédié) fournis mot pour mot par Moussa. Ils sont figés dans `lib/offres-contenu.ts`. Ce contenu n'existe pas dans `offres.md` : le vault reste à compléter pour que la source de vérité commerciale y soit aussi.
 
 ## 8. Documents liés
 
