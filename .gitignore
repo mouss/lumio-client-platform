@@ -1,0 +1,45 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# Prisma / base de données locale
+prisma/*.db
+prisma/*.db-journal
+*.sqlite
+*.sqlite3
+
+# Variables d'environnement : jamais de secret committé
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+*.log
+logs/
+
+# PDF générés localement
+/tmp/
+/generated/
+*.pdf
+
+# Éditeurs et OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Déploiement
+.vercel
+.pm2/
