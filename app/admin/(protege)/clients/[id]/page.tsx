@@ -9,6 +9,7 @@ import {
   enregistrerRestitution,
   envoyerOffreParEmail,
   marquerAuditFait,
+  marquerOffreRefusee,
   remplacerFichierAudit,
 } from "./actions";
 import {
@@ -239,6 +240,7 @@ export default async function PageClient({
           }))}
           actionCreer={creerOffre}
           actionEnvoyer={envoyerOffreParEmail}
+          actionRefuser={marquerOffreRefusee}
         />
       </Section>
 
@@ -271,8 +273,10 @@ export default async function PageClient({
         </dl>
 
         <p className="mt-4 text-xs text-lumio-white/40">
-          Ces pages publiques ne sont pas encore construites : elles affichent
-          aujourd&apos;hui un écran d&apos;attente.
+          La page de proposition est en ligne : elle montre la restitution de
+          l&apos;audit, puis l&apos;offre, et permet au prospect de valider en
+          ligne. Les pages de l&apos;espace client et du questionnaire restent à
+          construire.
         </p>
       </Section>
     </main>

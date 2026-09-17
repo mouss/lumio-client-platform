@@ -245,6 +245,10 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 - **Le contenu des offres est figé dans `lib/offres-contenu.ts`** : titre et liste de livrables ne sont jamais lus depuis le formulaire. Motif : garantir qu'aucune génération ne reformule un livrable vendu. Seuls le montant, la description et la modalité restent éditables.
 - Une offre créée referme son formulaire, sinon un second clic crée un doublon. Toute action qui crée un enregistrement depuis un formulaire persistant doit prévoir ce cas.
 - La restitution se verrouille dès qu'une offre porte une `dateEnvoi`. Une restitution ne se réécrit pas en silence après être partie chez un prospect.
+- **Une route publique dont l'effet est de l'argent (accepter une offre, créer un abonnement) doit être fermée.** Accepter deux fois ne doit pas créer deux abonnements. Le garde-fou vit côté serveur, pas seulement dans l'interface : un onglet resté ouvert, un double clic ou un rejeu de requête suffit à le déclencher.
+- Sur la page publique de proposition, le token fait office d'autorisation : uuid v4, non devinable, et `robots: noindex` sur la page.
+- La validation en ligne vaut accord écrit, **pas signature électronique qualifiée**. La mention affichée sous le bouton doit le dire sans ambiguïté, pour ne pas laisser croire à une valeur juridique qu'elle n'a pas.
+- Un email qui échoue ne doit pas annuler l'écrit. L'accord est enregistré d'abord, l'email part ensuite : si le SMTP manque, le client reste au statut qui décrit exactement la situation (accord signé, questionnaire pas encore envoyé).
 - Le contenu client (restitution, offre) ne contient aucun vocabulaire interne. Les notes d'audit sont internes, la restitution est publique : ne pas les confondre.
 
 ## 7. Écarts et points à trancher

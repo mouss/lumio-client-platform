@@ -92,6 +92,36 @@ function BoutonEnvoiEmail({
   );
 }
 
+/*
+  Refus enregistre a la main sur la fiche, pour un prospect qui decline a l'oral.
+  N'apparait que sur une offre encore ENVOYEE : une offre acceptee ne se renie pas
+  depuis ce bouton.
+*/
+function BoutonMarquerRefusee({
+  offreId,
+  action,
+}: {
+  offreId: string;
+  action: Action;
+}) {
+  const [etat, envoyer] = useFormState(action, VIDE);
+  const erreurs = erreursDe(etat);
+
+  return (
+    <form
+      action={envoyer}
+      className="mt-3 flex flex-col gap-2 border-t border-lumio-white/10 pt-3"
+    >
+      <input type="hidden" name="offreId" value={offreId} />
+      <Alerte message={erreurs.general} />
+      <Succes message={etat?.succes} />
+      <div>
+        <BoutonEnvoyer libelle="Marquer refusée" variante="secondaire" />
+      </div>
+    </form>
+  );
+}
+
 export function SectionOffre({
   clientId,
   restitutionExiste,
@@ -99,6 +129,7 @@ export function SectionOffre({
   offres,
   actionCreer,
   actionEnvoyer,
+  actionRefuser,
 }: {
   clientId: string;
   restitutionExiste: boolean;
@@ -106,6 +137,7 @@ export function SectionOffre({
   offres: OffreAffichee[];
   actionCreer: Action;
   actionEnvoyer: Action;
+  actionRefuser: Action;
 }) {
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
   const [etat, envoyer] = useFormState(actionCreer, VIDE);
@@ -218,6 +250,10 @@ export function SectionOffre({
                   ? `, ${offre.modaliteFacturement}`
                   : ""}
               </p>
+
+              {offre.statut === "ENVOYEE" ? (
+                <BoutonMarquerRefusee offreId={offre.id} action={actionRefuser} />
+              ) : null}
             </div>
           ))}
         </div>
@@ -229,9 +265,9 @@ export function SectionOffre({
             Page à transmettre au prospect
           </h3>
           <p className="mt-2 text-xs text-lumio-white/50">
-            Restitution et offre sur la même page. Cette page publique n&apos;est
-            pas encore construite : elle affiche aujourd&apos;hui un écran
-            d&apos;attente.
+            Restitution et offre sur la même page, que le prospect peut valider
+            en ligne. Le montant, la modalité et la mention d&apos;accord y sont
+            repris tels quels.
           </p>
 
           <code className="mt-3 block break-all rounded-md border border-lumio-white/10 bg-lumio-black px-3 py-2 font-mono text-xs text-lumio-blue-light">

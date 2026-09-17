@@ -485,3 +485,51 @@ export async function envoyerOffreParEmail(
 
   return { erreurs: {}, succes: `Offre envoyée à ${offre.client.email}.` };
 }
+
+/*
+  Refus enregistre a la main, pour un prospect qui decline a l'oral ou par telephone
+  plutot que sur la page publique. Une offre deja acceptee ne peut pas repasser en
+  refusee : l'accord a ete enregistre avec un nom, il ne s'efface pas par erreur.
+*/
+export async function marquerOffreRefusee(
+  _etat: EtatFormulaire,
+  donnees: FormData,
+): Promise<EtatFormulaire> {
+  const offreId = texte(donnees, "offreId");
+
+  if (!offreId) {
+    return { erreurs: { general: "Offre introuvable." } };
+  }
+
+  const offre = await prisma.offre.findUnique({
+    where: { id: offreId },
+    select: { id: true, statut: true, clientId: true },
+  });
+
+  if (!offre) {
+    return { erreurs: { general: "Offre introuvable." } };
+  }
+
+  if (offre.statut === "ACCEPTEE") {
+    return {
+      erreurs: {
+        general:
+          "Cette offre est déjà acceptée. Marque-la refusée depuis la base uniquement si le client est revenu sur son accord, pour ne pas effacer une validation enregistrée.",
+      },
+    };
+  }
+
+  await prisma.offre.update({
+    where: { id: offre.id },
+    data: { statut: "REFUSEE", dateReponse: new Date() },
+  });
+
+  await prisma.client.update({
+    where: { id: offre.clientId },
+    data: { statut: "OFFRE_REFUSEE" },
+  });
+
+  rafraichir(offre.clientId);
+
+  return { erreurs: {}, succes: "Offre marquée refusée." };
+}

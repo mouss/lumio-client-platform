@@ -76,3 +76,12 @@ export function fourchetteSprint(valeurAnnuelle: number): {
     max: Math.round((valeurAnnuelle * CONTENU_SPRINT.pourcentageMax) / 100),
   };
 }
+
+/*
+  Option maintenance mensuelle, proposee en plus d'un Pack Quick Win.
+  Source : offres.md, 90 € HT par mois. Sert a la fois a creer l'abonnement a
+  l'acceptation de l'offre et a l'afficher sur la page publique.
+*/
+export const MONTANT_MAINTENANCE_MENSUEL = 90;
+
+export const LIBELLE_MAINTENANCE = `${MONTANT_MAINTENANCE_MENSUEL} € HT/mois`;

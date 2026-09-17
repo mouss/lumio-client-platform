@@ -8,7 +8,7 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-17 : tout le cycle interne est en place, de la fiche client à la création de l'offre. Les pages publiques ne sont pas encore construites.
+Au 2026-09-17 : le cycle va de la fiche client à l'acceptation de l'offre par le prospect. La page de proposition est en ligne, l'espace client et le questionnaire restent à construire.
 
 Vérifié réellement :
 
@@ -21,8 +21,12 @@ Vérifié réellement :
 - La restitution s'enregistre et son aperçu client reflète en direct la synthèse, les opportunités et la recommandation.
 - L'offre Quick Win se crée avec son montant, sa modalité et ses 5 livrables figés. L'Extension Second Cerveau bascule de 500 à 990 € HT avec la case « pack dédié ». Le client passe en `OFFRE_ENVOYEE` et la restitution se verrouille.
 - Une offre créée referme le formulaire : aucun doublon possible, vérifié par le compte en base.
+- La page publique reproduit la restitution puis l'offre, avec l'impact dans un encart bleu, les livrables en liste et la ligne de maintenance séparée du montant. Un token inconnu renvoie `404`.
+- L'acceptation en ligne fonctionne de bout en bout : offre passée à `ACCEPTEE` avec le nom saisi, client à `OFFRE_ACCEPTEE` avec sa date de signature, abonnement de maintenance créé à 90 € quand l'offre le prévoyait. Un second appel est refusé en `409` et ne recrée aucun abonnement.
+- Un nom vide est refusé en `422`. Le nom modifié dans la confirmation est bien celui enregistré, vérifié en base.
+- Le refus depuis l'admin passe l'offre à `REFUSEE` et le client à `OFFRE_REFUSEE`. Le bouton n'apparaît pas sur une offre déjà acceptée.
 
-N'existe pas encore : pages publiques `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]`, écrans des 6 routes API métier, acceptation de l'offre par le prospect, génération du PDF d'audit, envoi des emails du parcours d'onboarding, suite de tests automatisée.
+N'existe pas encore : pages publiques `/espace/[token]` et `/onboarding/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, envoi des emails du parcours d'onboarding, suite de tests automatisée.
 
 ## Arborescence
 
@@ -41,6 +45,7 @@ app/
   api/
     clients/              fiches clients
     offres/               offres commerciales
+    offres/[token]/accepter/  acceptation de l'offre par le prospect, route publique
     abonnements/          maintenance et échéances
     emails/               envoi des emails clients
     questionnaire/        réponses au questionnaire
@@ -149,6 +154,25 @@ Créer une offre l'enregistre au statut `ENVOYEE` avec sa date d'envoi et passe 
 Une offre ne peut pas être créée sans restitution : la page publique montre la restitution au-dessus de l'offre, une offre seule arriverait sans contexte.
 
 La section affiche ensuite le lien de la page publique, avec un bouton pour le copier et un bouton pour l'envoyer par email au prospect. L'envoi par email dépend d'un SMTP configuré dans `.env` ; sans configuration, l'erreur affichée indique précisément ce qui manque.
+
+## Page de proposition `/offres/[token]`
+
+Page publique, accessible par le token du client, sans compte. Le token vaut autorisation : uuid v4, non devinable. La page n'est jamais indexée.
+
+Deux blocs, dans cet ordre :
+
+1. **Ce que l'audit a révélé** : synthèse du diagnostic, opportunités en liste, impact estimé dans un encart bleu. Posture de diagnostiqueur avant d'être vendeur.
+2. **Ce que je vous propose** : titre, description, livrables en liste pour les offres à contenu figé (Quick Win et Extension Second Cerveau, pas le Sprint), montant et modalité. L'option maintenance apparaît sur une ligne séparée sous le montant, pour ne pas confondre le paiement unique et l'engagement récurrent. Le lien de paiement devient le bouton « Régler l'acompte » quand il est renseigné.
+
+Le champ `recommandation` de la restitution fait la transition entre les deux blocs.
+
+En bas, « Accepter cette offre » ouvre une confirmation qui demande le nom complet, pré-rempli avec le nom de la fiche et modifiable. « J'ai une question avant de valider » ouvre un email vers `moussa@lumiodigital.fr`. La mention d'accord est affichée sous le bouton : elle vaut accord écrit, ce n'est pas une signature électronique qualifiée.
+
+La validation part en `POST /api/offres/[token]/accepter`. C'est une route publique, le prospect n'a pas de compte : c'est le token qui fait office d'autorisation. Elle passe l'offre à `ACCEPTEE` avec le nom saisi et sa date de réponse, le client à `OFFRE_ACCEPTEE` avec sa date de signature, et crée l'abonnement de maintenance à 90 € si l'offre le prévoyait. Elle est **fermée** : un second appel est refusé en `409` sans recréer d'abonnement, donc un double clic ou un onglet resté ouvert ne fait pas payer deux fois la maintenance.
+
+L'email de bienvenue part après l'enregistrement. S'il échoue (SMTP absent), l'accord reste enregistré et le client reste en `OFFRE_ACCEPTEE` : le questionnaire n'a pas été envoyé, ce statut est donc exact, et l'envoi peut être repris. Une fois l'email parti, le client passe à `QUESTIONNAIRE_ENVOYE`.
+
+Le refus se marque à la main depuis la fiche client, pour un prospect qui décline à l'oral : l'offre passe à `REFUSEE` et le client à `OFFRE_REFUSEE`. Une offre déjà acceptée n'affiche pas ce bouton, et l'action refuse aussi ce cas de son côté.
 
 ## Modèle de données
 
