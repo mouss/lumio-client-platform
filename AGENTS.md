@@ -254,7 +254,7 @@ Ces points ont été relevés à la création du projet, le 2026-09-17. Ils ne s
 1. **Tarif et contenu de l'Extension Second Cerveau.** Tranché le 2026-09-17 par Moussa, voir la sous-section « Tranché » ci-dessous.
 2. **Nom du produit.** Le briefing dit « Agent Hermès (Employé IA 24/7) », le vault dit « Pack Quick Win Votre Employé IA 24/7 » basé sur Hermes Agent. Un seul nom doit être retenu pour les documents client.
 3. **Briefing Matinal.** Le briefing le présente comme un livrable nommé du pack. Le vault le présente comme un exemple de cron job (« ex. briefing matinal à 8h00 croisant les e-mails prioritaires, les rendez-vous de la journée et une veille sectorielle »). À aligner si le pack doit être vendu sur ce livrable précis.
-4. **Canal d'accès mobile.** Le vault cite « Telegram, WhatsApp ou Slack ». Le briefing ne cite que Telegram et WhatsApp. Moussa n'utilise pas Slack.
+4. **Canal d'accès mobile.** Tranché le 2026-09-17 : la spec de Moussa cite « Telegram, WhatsApp ou Slack », et c'est cette formulation qui est retenue dans `lib/offres-contenu.ts`. Le choix revient au client, donc le fait que Moussa n'utilise pas Slack n'entre pas en compte. Le vault disait déjà la même chose.
 5. **Audit payant et déduction du premier palier.** Tranché le 2026-09-17, voir la sous-section « Tranché » ci-dessous.
 
 ### Tranché
