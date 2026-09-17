@@ -8,15 +8,16 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-17 : squelette de projet vérifié. Les pages et les routes API existent et répondent, mais restent des écrans à construire. Les routes API renvoient `501 not_implemented`. Aucun modèle Prisma n'est écrit, donc aucune table n'existe.
+Au 2026-09-17 : squelette de projet et modèle de données terminés. Les pages et les routes API existent et répondent, mais restent des écrans à construire et renvoient `501 not_implemented`. Le schéma Prisma est écrit, migré, et les 9 tables existent.
 
 Vérifié réellement :
 
-- `npm run build` passe, 13 routes générées.
+- `npm run build` passe, 13 routes générées, type checking et lint inclus.
 - Le serveur répond : `/`, `/admin`, `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]` en 200, les 7 routes API en 501.
-- La chaîne base de données fonctionne de bout en bout : Next.js, Prisma 7, adaptateur `better-sqlite3`, fichier SQLite, avec `DATABASE_URL` lu depuis `.env`.
+- La migration `20260917114402_init` s'applique : 9 tables plus `_prisma_migrations`.
+- Les modèles fonctionnent à l'exécution : création d'un client, token UUID v4 auto-généré sur 36 caractères, statut par défaut `RDV_PLANIFIE`, lecture par token, suppression.
 
-N'existe pas encore : authentification de `/admin`, modèles de données, webhook Calendly, envoi d'emails, génération du PDF d'audit, suite de tests.
+N'existe pas encore : authentification de `/admin`, webhook Calendly, envoi d'emails, génération du PDF d'audit, suite de tests.
 
 ## Arborescence
 
@@ -36,7 +37,7 @@ app/
     webhooks/calendly/    réservations et annulations Calendly
 components/               composants réutilisables, style Lumio
 lib/                      client Prisma, envoi d'emails, génération de roadmap
-prisma/                   schema.prisma
+prisma/                   schema.prisma et migrations
 generated/prisma/         client Prisma généré, ignoré par git
 prisma7.config.ts         configuration de la CLI Prisma 7
 ```
@@ -59,7 +60,7 @@ Couleurs déclarées dans `tailwind.config.ts` sous le préfixe `lumio` : `lumio
 ```bash
 npm install          # lance aussi prisma generate via le script postinstall
 cp .env.example .env
-npm run db:push      # crée le fichier SQLite
+npm run db:migrate   # crée le fichier SQLite et applique les migrations
 npm run dev
 ```
 
@@ -73,17 +74,37 @@ L'application écoute sur `http://localhost:3000`.
 | `npm run build` | build de production |
 | `npm run start` | sert le build |
 | `npm run lint` | ESLint |
-| `npm run db:push` | applique le schéma Prisma à la base SQLite |
+| `npm run db:migrate` | `prisma migrate dev`, crée la base et applique les migrations |
+| `npm run db:push` | applique le schéma sans créer de migration |
 | `npm run db:generate` | régénère le client Prisma |
+
+## Modèle de données
+
+9 modèles dans `prisma/schema.prisma` :
+
+| Modèle | Relation au client | Rôle |
+| --- | --- | --- |
+| `Client` | racine | fiche créée par le webhook Calendly, porte le token public |
+| `RestitutionAudit` | un pour un | restitution de l'audit, éditable tant qu'elle n'est pas envoyée |
+| `Offre` | plusieurs | Quick Win, Extension Second Cerveau ou Sprint, historisés |
+| `Abonnement` | plusieurs | maintenance mensuelle, créée à l'acceptation |
+| `Questionnaire` | un pour un | réponses du client après signature |
+| `AnalyseInterne` | un pour un | préparation interne avant l'appel de lancement |
+| `RoadmapPhase` | plusieurs | les 3 phases de la feuille de route |
+| `CommunicationUpdate` | plusieurs | échanges horodatés, auteur ADMIN ou CLIENT |
+| `CreneauCommunication` | plusieurs | créneau de communication dédié au client |
+
+Les `enum` sont supportés par Prisma 7 sur SQLite et stockés en `TEXT`. Les listes (`opportunites`, `livrables`, `accesTechniques`) sont en `Json`, également stocké en `TEXT`.
 
 ## Prisma
 
 Prisma 7 : l'URL de connexion vit dans `prisma7.config.ts`, plus dans `schema.prisma`. Le client est généré en TypeScript dans `generated/prisma`, dossier ignoré par git et recréé par le script `postinstall`. Il s'importe par `@/generated/prisma/client` et s'instancie toujours avec un driver adapter, dans `lib/prisma.ts`.
 
-Deux pièges vérifiés le 2026-09-17 :
+Trois pièges vérifiés le 2026-09-17 :
 
 - `better-sqlite3` est un module natif. Il doit rester dans `serverComponentsExternalPackages` (`next.config.mjs`), sinon webpack l'embarque et le paquet `bindings` ne retrouve plus son binaire : `TypeError: Cannot read properties of undefined (reading 'indexOf')`.
-- Les entiers SQLite remontent en `BigInt`. `NextResponse.json` lève alors `TypeError: Do not know how to serialize a BigInt`. Convertir avant de renvoyer.
+- Les entiers remontent en `BigInt`. `NextResponse.json` lève alors `TypeError: Do not know how to serialize a BigInt`. Convertir avant de renvoyer.
+- Le dist-tag `latest` du paquet `prisma` pointait sur une release candidate (`8.0.0-rc.15`) le 2026-09-17. Toujours installer `prisma` avec la version exacte de `@prisma/client`.
 
 ## Tests
 

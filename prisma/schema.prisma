@@ -1,8 +1,9 @@
 // Schema Prisma de la plateforme client Lumio Digital.
 // Prisma 7 : l'URL de connexion vit dans prisma7.config.ts, plus dans ce fichier.
-// Les modeles ne sont pas encore ecrits : ils se definissent au demarrage du chantier "schema de donnees",
-// avec les contraintes notees dans AGENTS.md section 6 (idempotence du webhook Calendly,
-// distinction des offres d'un meme client dans le temps, tokens publics non devinables).
+//
+// Un client peut avoir plusieurs Offre dans le temps : un Pack Quick Win accepte d'abord,
+// puis une Extension Second Cerveau ou un Sprint proposes plus tard. Aucune offre n'ecrase
+// l'historique des precedentes.
 
 generator client {
   provider = "prisma-client"
@@ -11,4 +12,251 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+}
+
+// ---------------------------------------------------------------- Client
+
+enum StatutClient {
+  RDV_PLANIFIE
+  RDV_ANNULE
+  AUDIT_FAIT
+  OFFRE_ENVOYEE
+  OFFRE_ACCEPTEE
+  OFFRE_REFUSEE
+  QUESTIONNAIRE_ENVOYE
+  QUESTIONNAIRE_COMPLETE
+  ANALYSE_FAITE
+  APPEL_PLANIFIE
+  APPEL_FAIT
+  ROADMAP_ENVOYEE
+  EN_COURS
+  LIVRE
+  CLOS
+}
+
+model Client {
+  id     String @id @default(cuid())
+  // Token public des espaces /offres/[token] puis /espace/[token].
+  // uuid v4 : aleatoire, non devinable, un seul token par client sur tout le cycle.
+  token  String @unique @default(uuid())
+
+  nom       String
+  entreprise String?
+  email     String
+  telephone String?
+
+  // Renseignee automatiquement a la reservation Calendly, modifiable si le RDV est replanifie.
+  dateAudit DateTime?
+  // Resume de ce qui est ressorti de l'Audit IA, rempli apres l'appel.
+  notesAudit String?
+
+  // Identifiant de l'evenement Calendly : sert a retrouver la fiche en cas de replanification
+  // ou d'annulation. Unique, mais nullable pour les fiches creees a la main.
+  calendlyEventUri  String? @unique
+  calendlyInviteeUri String?
+
+  fichierAuditNom    String?
+  fichierAuditChemin String?
+
+  // Rempli automatiquement a l'acceptation de l'offre.
+  dateSignature DateTime?
+  // Rempli quand le statut passe a LIVRE.
+  dateLivraison DateTime?
+  // Passe a true quand la relance de l'Extension Second Cerveau est partie (environ deux semaines apres installation).
+  relanceExtensionEnvoyee Boolean @default(false)
+
+  statut StatutClient @default(RDV_PLANIFIE)
+
+  restitution         RestitutionAudit?
+  offres              Offre[]
+  abonnements         Abonnement[]
+  questionnaire       Questionnaire?
+  analyseInterne      AnalyseInterne?
+  roadmapPhases       RoadmapPhase[]
+  communicationUpdates CommunicationUpdate[]
+  creneaux            CreneauCommunication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- Restitution d'audit
+
+model RestitutionAudit {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Resume de ce qui ressort de l'audit.
+  syntheseDiagnostic String
+  // Une opportunite par entree : titre et impact estime.
+  opportunites       Json
+  // Texte libre, par exemple "environ 15h/mois recuperees" ou un montant.
+  roiEstime          String?
+  // Phrase courte qui introduit l'offre proposee juste en dessous sur la page.
+  recommandation     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- Offres
+
+enum TypeOffre {
+  QUICK_WIN
+  EXTENSION_SECOND_CERVEAU
+  SPRINT
+}
+
+enum StatutOffre {
+  ENVOYEE
+  ACCEPTEE
+  REFUSEE
+}
+
+model Offre {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  type  TypeOffre
+  titre String
+
+  // Promesse et contenu. Les livrables sont dans le champ dedie ci-dessous.
+  description String
+  // Liste de livrables a afficher en puces sur la page publique et dans le PDF.
+  livrables   Json
+
+  montant Float
+
+  // Texte libre, par exemple "Paiement en une fois a la commande" ou
+  // "20 % a la validation du Blueprint, 60 % a la mise en production, 20 % a la formation et cloture".
+  modaliteFacturement String
+
+  // Coche quand l'offre Quick Win propose l'option maintenance en plus : cree l'abonnement a l'acceptation.
+  abonnementMaintenanceInclus Boolean @default(false)
+
+  // Uniquement pour une EXTENSION_SECOND_CERVEAU vendue en meme temps qu'un Pack Quick Win
+  // plutot qu'en upsell sur un pack deja vendu : ajuste le montant a 990 au lieu de 500.
+  packDedie Boolean @default(false)
+
+  // Lien de paiement colle manuellement, par exemple un lien Stripe.
+  lienPaiement String?
+
+  statut StatutOffre @default(ENVOYEE)
+
+  dateEnvoi   DateTime?
+  dateReponse DateTime?
+  // Capture au moment de l'acceptation.
+  signatureNom String?
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------- Abonnement maintenance
+
+enum StatutAbonnement {
+  ACTIF
+  RESILIE
+}
+
+model Abonnement {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // En euros HT. 90 par defaut, tarif de la maintenance mensuelle Lumio.
+  montantMensuel Float @default(90)
+
+  statut         StatutAbonnement @default(ACTIF)
+  dateDebut      DateTime @default(now())
+  dateResiliation DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------- Questionnaire d'onboarding
+
+model Questionnaire {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  objectifPrincipal   String?
+  kpi                 String?
+  deadlineIdeale      String?
+  outilsActuels       String?
+  processActuel       String?
+  problemesPrincipaux String?
+  // Liste des acces techniques a recuperer : CRM, email, API, outils no-code, autres.
+  accesTechniques     Json?
+  contraintesLegales  String?
+  contraintesInternes String?
+
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------- Analyse interne
+
+model AnalyseInterne {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  problemePrincipal  String?
+  solutionProposee   String?
+  quickWinsVisibles  String?
+  pointsDeVigilance  String?
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------- Feuille de route
+
+enum StatutPhase {
+  A_VENIR
+  EN_COURS
+  TERMINE
+}
+
+model RoadmapPhase {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  nom         String
+  dateDebut   DateTime
+  dateFin     DateTime
+  description String?
+  statut      StatutPhase @default(A_VENIR)
+}
+
+// ---------------------------------------------------------------- Communication
+
+enum AuteurMessage {
+  ADMIN
+  CLIENT
+}
+
+model CommunicationUpdate {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  message String
+  auteur  AuteurMessage
+
+  createdAt DateTime @default(now())
+}
+
+model CreneauCommunication {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  jour       String
+  heureDebut String
+  heureFin   String
 }

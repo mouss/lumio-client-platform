@@ -228,6 +228,10 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 - **`better-sqlite3` reste dans `serverComponentsExternalPackages`** (`next.config.mjs`). C'est un module natif : embarqué par webpack, il casse au premier accès à la base avec `TypeError: Cannot read properties of undefined (reading 'indexOf')`. Vérifié le 2026-09-17.
 - **Les entiers SQLite remontent en `BigInt`.** `NextResponse.json` lève alors `TypeError: Do not know how to serialize a BigInt`. Convertir avant de renvoyer. Vérifié le 2026-09-17.
 - Aucun dossier de route ne peut commencer par un souligné dans `app/` : l'App Router le traite comme un dossier privé et la route renvoie 404. Vérifié le 2026-09-17.
+- **Modèle de données.** Il vit dans `prisma/schema.prisma` (9 modèles). Les `enum` et les `Json` sont supportés par Prisma 7 sur SQLite, stockés en `TEXT`. Une migration appliquée ne se réécrit pas : une évolution du schéma passe par une nouvelle migration.
+- `RestitutionAudit`, `Questionnaire` et `AnalyseInterne` sont en un pour un avec `Client`. `Offre`, `Abonnement`, `RoadmapPhase`, `CommunicationUpdate` et `CreneauCommunication` restent en plusieurs par client, pour garder l'historique.
+- Le token public du client est un `uuid()` généré par la base à la création, jamais saisi à la main. Il sert du premier email jusqu'à la fin du projet.
+- Les montants sont en `Float`, exprimés en euros HT.
 
 ## 7. Écarts et points à trancher
 
