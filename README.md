@@ -8,7 +8,7 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-17 : le cycle va de la fiche client à l'acceptation de l'offre par le prospect. La page de proposition est en ligne, l'espace client et le questionnaire restent à construire.
+Au 2026-09-17 : le cycle va de la fiche client au questionnaire d'onboarding rempli par le client signé. La proposition et le questionnaire sont en ligne, l'espace client reste à construire.
 
 Vérifié réellement :
 
@@ -25,8 +25,11 @@ Vérifié réellement :
 - L'acceptation en ligne fonctionne de bout en bout : offre passée à `ACCEPTEE` avec le nom saisi, client à `OFFRE_ACCEPTEE` avec sa date de signature, abonnement de maintenance créé à 90 € quand l'offre le prévoyait. Un second appel est refusé en `409` et ne recrée aucun abonnement.
 - Un nom vide est refusé en `422`. Le nom modifié dans la confirmation est bien celui enregistré, vérifié en base.
 - Le refus depuis l'admin passe l'offre à `REFUSEE` et le client à `OFFRE_REFUSEE`. Le bouton n'apparaît pas sur une offre déjà acceptée.
+- Le questionnaire s'ouvre à l'acceptation, refuse un client pas encore signé en `409`, passe le client à `QUESTIONNAIRE_COMPLETE` à l'envoi, et conserve la date de première completion quand le client le renvoie corrigé.
+- Les branches de refus du questionnaire sont exercées : token absent en `422`, token inconnu en `404`, client non signé en `409`, client déjà passé à l'analyse en `409`, champs manquants en `422` avec le détail par champ.
+- Les réponses remontent sur la fiche client dans l'admin, accès techniques compris.
 
-N'existe pas encore : pages publiques `/espace/[token]` et `/onboarding/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, envoi des emails du parcours d'onboarding, suite de tests automatisée.
+N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, envoi des emails du parcours d'onboarding, suite de tests automatisée.
 
 ## Arborescence
 
@@ -173,6 +176,18 @@ La validation part en `POST /api/offres/[token]/accepter`. C'est une route publi
 L'email de bienvenue part après l'enregistrement. S'il échoue (SMTP absent), l'accord reste enregistré et le client reste en `OFFRE_ACCEPTEE` : le questionnaire n'a pas été envoyé, ce statut est donc exact, et l'envoi peut être repris. Une fois l'email parti, le client passe à `QUESTIONNAIRE_ENVOYE`.
 
 Le refus se marque à la main depuis la fiche client, pour un prospect qui décline à l'oral : l'offre passe à `REFUSEE` et le client à `OFFRE_REFUSEE`. Une offre déjà acceptée n'affiche pas ce bouton, et l'action refuse aussi ce cas de son côté.
+
+## Questionnaire d'onboarding `/onboarding/[token]`
+
+Étape 2 du guide d'onboarding du vault. Page publique, ouverte par le token du client. Elle n'est pas indexée.
+
+Règle du guide respectée : 10 à 15 questions maximum, claires, obligatoires. Les informations générales (contact, entreprise, téléphone) sont pré-remplies depuis la fiche et corrigibles, parce que le contact réel peut différer du prospect qui a réservé l'audit : les corrections remontent sur la fiche. Les neuf questions de fond sont obligatoires, avec « Aucune » comme réponse admise sur les deux questions de contraintes, pour ne pas bloquer un client qui n'en a pas.
+
+La question des accès techniques est une liste à cocher (CRM, email, API, outils no-code, autres), pas un champ de saisie : **aucun identifiant ne transite par ce formulaire**. Elle sert à savoir quels comptes ouvrir.
+
+Ouverture : le questionnaire est accessible aux statuts `OFFRE_ACCEPTEE`, `QUESTIONNAIRE_ENVOYE` et `QUESTIONNAIRE_COMPLETE`, c'est-à-dire dès l'acceptation même si l'email d'annonce n'est pas parti. Un client qui n'a pas encore validé voit un message qui le dit, et l'API refuse en `409`. Un client déjà passé à l'analyse interne le voit en lecture seule : les réponses servent de base à l'appel de lancement, elles ne doivent plus changer après avoir été lues.
+
+Un renvoi met à jour les réponses et laisse `completedAt` à sa valeur d'origine, pour ne pas fausser la date de première réception.
 
 ## Modèle de données
 

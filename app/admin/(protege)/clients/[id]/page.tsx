@@ -94,6 +94,20 @@ export default async function PageClient({
           lienPaiement: true,
         },
       },
+      questionnaire: {
+        select: {
+          objectifPrincipal: true,
+          kpi: true,
+          deadlineIdeale: true,
+          outilsActuels: true,
+          processActuel: true,
+          problemesPrincipaux: true,
+          accesTechniques: true,
+          contraintesLegales: true,
+          contraintesInternes: true,
+          completedAt: true,
+        },
+      },
     },
   });
 
@@ -244,6 +258,67 @@ export default async function PageClient({
         />
       </Section>
 
+      <Section titre="Questionnaire d'onboarding">
+        {client.questionnaire ? (
+          <dl className="mt-4 grid gap-4">
+            <Ligne
+              libelle="Reçu le"
+              valeur={formatDateHeure(client.questionnaire.completedAt)}
+            />
+            <Ligne
+              libelle="Objectif principal"
+              valeur={client.questionnaire.objectifPrincipal}
+            />
+            <Ligne
+              libelle="Indicateur de succès"
+              valeur={client.questionnaire.kpi}
+            />
+            <Ligne
+              libelle="Deadline idéale"
+              valeur={client.questionnaire.deadlineIdeale}
+            />
+            <Ligne
+              libelle="Outils actuels"
+              valeur={client.questionnaire.outilsActuels}
+            />
+            <Ligne
+              libelle="Process actuel"
+              valeur={client.questionnaire.processActuel}
+            />
+            <Ligne
+              libelle="Problèmes principaux"
+              valeur={client.questionnaire.problemesPrincipaux}
+            />
+            <Ligne
+              libelle="Accès techniques à ouvrir"
+              valeur={
+                Array.isArray(client.questionnaire.accesTechniques)
+                  ? client.questionnaire.accesTechniques
+                      .filter(
+                        (element): element is string =>
+                          typeof element === "string" && element.trim() !== "",
+                      )
+                      .join(", ") || "Aucun coché"
+                  : "Aucun coché"
+              }
+            />
+            <Ligne
+              libelle="Contraintes légales ou RGPD"
+              valeur={client.questionnaire.contraintesLegales}
+            />
+            <Ligne
+              libelle="Contraintes internes"
+              valeur={client.questionnaire.contraintesInternes}
+            />
+          </dl>
+        ) : (
+          <p className="mt-4 text-sm text-lumio-white/60">
+            Pas encore de réponse. Le questionnaire s&apos;ouvre au client dès que
+            son offre est validée.
+          </p>
+        )}
+      </Section>
+
       <Section titre="Liens à transmettre">
         <dl className="mt-4 grid gap-4">
           <Ligne
@@ -273,10 +348,8 @@ export default async function PageClient({
         </dl>
 
         <p className="mt-4 text-xs text-lumio-white/40">
-          La page de proposition est en ligne : elle montre la restitution de
-          l&apos;audit, puis l&apos;offre, et permet au prospect de valider en
-          ligne. Les pages de l&apos;espace client et du questionnaire restent à
-          construire.
+          La page de proposition et le questionnaire sont en ligne. La page de
+          l&apos;espace client reste à construire.
         </p>
       </Section>
     </main>
