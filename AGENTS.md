@@ -176,12 +176,16 @@ Le pack Agent Hermès peut servir de porte d'entrée vers un AI Operations Sprin
 
 ## 4. Stack technique
 
-- Next.js 14 App Router.
-- TypeScript.
-- Tailwind.
-- Prisma plus SQLite.
-- Nodemailer.
+Versions réellement installées et vérifiées par un build le 2026-09-17 :
+
+- Next.js 14.2.35, App Router, React 18.3.1.
+- TypeScript 5.
+- Tailwind CSS 3.4.19.
+- Prisma 7.10.0 avec l'adaptateur `@prisma/adapter-better-sqlite3` et SQLite.
+- Nodemailer 10.
 - Déploiement VPS Hostinger avec PM2 et Nginx.
+
+**Piège de version Prisma.** Le dist-tag `latest` du paquet `prisma` pointait sur une release candidate (`8.0.0-rc.15`) le 2026-09-17, alors que `@prisma/client` était en 7.10.0. Un `npm install -D prisma` sans version explicite désaligne la CLI du client et casse la génération. Toujours installer `prisma` avec la version exacte du client.
 
 ## 5. Conventions
 
@@ -218,8 +222,12 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 
 - Le webhook Calendly est le seul point de création de fiche client. Il doit être idempotent : une même réservation ne crée jamais deux fiches.
 - Le PDF d'audit et la page web lisent la même source de données. Aucune duplication de contenu rédigé.
-- Les tokens des espaces publics (`/offres/[token]`, `/espace/[token]`) sont non devinables et sans mot de passe. Aucune donnée d'un client ne doit être accessible depuis le token d'un autre.
+- Les tokens des espaces publics (`/offres/[token]`, `/espace/[token]`, `/onboarding/[token]`) sont non devinables et sans mot de passe. Aucune donnée d'un client ne doit être accessible depuis le token d'un autre.
 - Le modèle de données doit distinguer les offres d'un même client dans le temps (pack, extension, maintenance, Sprint) sans écraser l'historique.
+- **Base de données.** Prisma 7 : l'URL de connexion vit dans `prisma7.config.ts`, plus dans `schema.prisma`. Le client est généré dans `generated/prisma` (ignoré par git, recréé par le script `postinstall`) et s'importe par `@/generated/prisma/client`. Il s'instancie toujours avec un driver adapter, jamais sans : voir `lib/prisma.ts`.
+- **`better-sqlite3` reste dans `serverComponentsExternalPackages`** (`next.config.mjs`). C'est un module natif : embarqué par webpack, il casse au premier accès à la base avec `TypeError: Cannot read properties of undefined (reading 'indexOf')`. Vérifié le 2026-09-17.
+- **Les entiers SQLite remontent en `BigInt`.** `NextResponse.json` lève alors `TypeError: Do not know how to serialize a BigInt`. Convertir avant de renvoyer. Vérifié le 2026-09-17.
+- Aucun dossier de route ne peut commencer par un souligné dans `app/` : l'App Router le traite comme un dossier privé et la route renvoie 404. Vérifié le 2026-09-17.
 
 ## 7. Écarts et points à trancher
 

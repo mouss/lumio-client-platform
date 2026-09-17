@@ -9,9 +9,14 @@ out/
 build/
 next-env.d.ts
 
-# Prisma / base de données locale
-prisma/*.db
-prisma/*.db-journal
+# Client Prisma généré (recréé par prisma generate, voir le script postinstall)
+/generated/
+
+# Base de données locale SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 
@@ -31,7 +36,6 @@ logs/
 
 # PDF générés localement
 /tmp/
-/generated/
 *.pdf
 
 # Éditeurs et OS
@@ -39,6 +43,10 @@ logs/
 .vscode/
 .idea/
 *.swp
+
+# Caches de build
+.eslintcache
+*.tsbuildinfo
 
 # Déploiement
 .vercel

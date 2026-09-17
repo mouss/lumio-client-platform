@@ -1,0 +1,14 @@
+// Schema Prisma de la plateforme client Lumio Digital.
+// Prisma 7 : l'URL de connexion vit dans prisma7.config.ts, plus dans ce fichier.
+// Les modeles ne sont pas encore ecrits : ils se definissent au demarrage du chantier "schema de donnees",
+// avec les contraintes notees dans AGENTS.md section 6 (idempotence du webhook Calendly,
+// distinction des offres d'un meme client dans le temps, tokens publics non devinables).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}

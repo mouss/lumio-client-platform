@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Charte Lumio Digital.
+  Noir #050505 et blanc #FFFFFF en base, le bleu reste un accent, jamais un fond dominant.
+  #0054A6 sur fond clair, #4D9FE8 sur fond sombre.
+  RNS Sanz en cible, substitut Helvetica Neue ou Arial en attendant l'intégration de la police.
+*/
+
+:root {
+  --lumio-black: #050505;
+  --lumio-white: #ffffff;
+  --lumio-blue: #0054a6;
+  --lumio-blue-light: #4d9fe8;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--lumio-black);
+  color: var(--lumio-white);
+  font-family: "RNS Sanz", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Surface claire : le bleu foncé y sert d'accent, le bleu clair n'y a pas de contraste suffisant. */
+.lumio-surface-light {
+  background-color: var(--lumio-white);
+  color: var(--lumio-black);
+}
