@@ -37,7 +37,7 @@ export default async function LayoutAdmin({
               <Link href="/admin" className="hover:text-lumio-white">
                 Clients
               </Link>
-              <Link href="/admin/nouveau" className="hover:text-lumio-white">
+              <Link href="/admin/clients/nouveau" className="hover:text-lumio-white">
                 Nouveau client
               </Link>
             </nav>

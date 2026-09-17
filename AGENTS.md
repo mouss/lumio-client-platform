@@ -239,6 +239,9 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 - Le cookie de session est un jeton signé HMAC-SHA256 avec une clé dérivée de `ADMIN_PASSWORD`, ce qui invalide toutes les sessions en cours quand le mot de passe change. Le format et la vérification sont dans `lib/session.ts`, en Web Crypto.
 - `app/admin/login` vit hors du groupe de routes protégé. Tout nouvel écran de l'espace interne se place dans `app/admin/(protege)/`, sinon il est accessible sans connexion.
 - Les PDF d'audit sont écrits dans `uploads/audits/<clientId>/`, hors du dépôt git. Le nom d'origine est conservé dans `fichierAuditNom`, le nom assaini sur disque dans `fichierAuditChemin`. Un nom d'origine ne doit jamais servir de chemin sans passer par `path.basename` et une liste blanche de caractères.
+- Un dossier de route dans `app/api/` **ne passe pas** par le layout du groupe protégé. Toute route qui sert une donnée client vérifie la session elle-même, avec la fonction du layout, et cette protection se contrôle au `curl` sans cookie.
+- Un chemin de fichier venu de la base se valide avant lecture ou suppression : chemin résolu, puis vérification qu'il reste sous la racine du dépôt.
+- Une action serveur qui s'exécute depuis la page qu'elle modifie **ne redirige pas vers l'URL courante**. Le formulaire reste monté pendant la transition et `useFormState` reçoit un état `undefined`, ce qui casse le rendu. Vers une autre page, la redirection est sûre. Dans tous les cas, le formulaire normalise l'état reçu (`etat?.erreurs ?? {}`).
 
 ## 7. Écarts et points à trancher
 

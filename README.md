@@ -8,18 +8,20 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-17 : modèle de données, réception Calendly, authentification de l'espace interne, dashboard et formulaire de création terminés. Les écrans publics et les routes API métier restent à construire.
+Au 2026-09-17 : modèle de données, réception Calendly, authentification de l'espace interne, dashboard, fiche client détaillée avec marquage d'audit et service du fichier, formulaire de création. Les écrans publics, la restitution et l'offre restent à construire.
 
 Vérifié réellement :
 
-- `npm run build` passe, 15 routes générées, type checking et lint inclus.
+- `npm run build` passe, 17 routes générées, type checking et lint inclus.
 - La migration `20260917114402_init` s'applique : 9 tables plus `_prisma_migrations`.
 - Les modèles fonctionnent à l'exécution : token UUID v4 auto-généré, statut par défaut, lecture par token.
 - Le webhook Calendly fonctionne, vérifié sur 11 cas : signature absente, fausse, corps falsifié et horodatage périmé rejetés en `401`, autre type d'événement ignoré, réservation créant la fiche, relivraison sans doublon, annulation passant la fiche en `RDV_ANNULE`, annulation inconnue ignorée, corps illisible en `400`.
-- L'espace interne est protégé : `/admin` et `/admin/nouveau` renvoient `307` vers `/admin/login` sans session, cookie forgé rejeté.
-- Le formulaire « Nouveau client » fonctionne dans un vrai navigateur, dans ses deux modes, avec un PDF réellement écrit sur le disque.
+- L'espace interne est protégé : `/admin`, `/admin/clients/nouveau`, `/admin/clients/[id]` et la route du fichier d'audit renvoient `307` vers `/admin/login` sans session, cookie forgé rejeté.
+- Le formulaire « Nouveau client » fonctionne dans un vrai navigateur, dans ses deux modes, avec un fichier réellement écrit sur le disque.
+- Le marquage d'audit et le remplacement du fichier fonctionnent de bout en bout dans un navigateur : statut passé à `AUDIT_FAIT`, notes conservées, ancien fichier supprimé du disque, nouveau servi avec son bon type.
+- La route du fichier d'audit sert réellement le fichier avec `Content-Disposition: inline`, le bon type MIME et `Cache-Control: private, no-store`.
 
-N'existe pas encore : écrans des 6 routes API métier, pages publiques `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]`, envoi d'emails, génération du PDF d'audit, accès au PDF depuis la fiche client, suite de tests automatisée.
+N'existe pas encore : écrans des 6 routes API métier, pages publiques `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]`, restitution d'audit, offre commerciale, envoi d'emails, génération du PDF d'audit, suite de tests automatisée.
 
 ## Arborescence
 
@@ -29,7 +31,8 @@ app/
     login/                connexion, hors zone protégée
     (protege)/            tout ce qui exige une session
       page.tsx            dashboard : liste des clients
-      nouveau/            formulaire de création, deux modes
+      clients/nouveau/    formulaire de création, deux modes
+      clients/[id]/       fiche client : coordonnées, notes, fichier, marquage d'audit
   offres/[token]/         page publique, avant signature : audit + proposition
   espace/[token]/         espace client public, après signature
   onboarding/[token]/     questionnaire public, 10 à 15 questions
@@ -41,11 +44,13 @@ app/
     questionnaire/        réponses au questionnaire
     updates/              mises à jour publiées dans l'espace client
     webhooks/calendly/    réservations et annulations Calendly
+    admin/clients/[id]/fichier-audit/
+                          sert le fichier d'audit, session vérifiée dans la route
 components/               composants réutilisables, style Lumio
-lib/                      client Prisma, session, emails, roadmap, formatage, libellés
+lib/                      client Prisma, session, fichiers d'audit, emails, roadmap, urls
 prisma/                   schema.prisma et migrations
 generated/prisma/         client Prisma généré, ignoré par git
-uploads/audits/           PDF d'audit déposés, ignoré par git
+uploads/audits/           fichiers d'audit déposés, ignoré par git
 prisma7.config.ts         configuration de la CLI Prisma 7
 ```
 
@@ -100,11 +105,17 @@ Deux modes, pour les rendez-vous qui ne passent pas par Calendly :
 | Mode | Statut initial | Champs supplémentaires |
 | --- | --- | --- |
 | RDV à venir | `RDV_PLANIFIE`, identique au webhook | aucun |
-| Audit déjà fait | `AUDIT_FAIT` | notes d'audit, PDF de l'audit obligatoire |
+| Audit déjà fait | `AUDIT_FAIT` | notes d'audit, fichier d'audit obligatoire |
 
 Le socle commun est nom, email, entreprise, téléphone et une date. La date est convertie en UTC par le navigateur avant envoi : le fuseau du serveur n'influence donc rien, et l'affichage se fait en heure de Paris.
 
-Les PDF sont écrits dans `uploads/audits/<clientId>/` (surchargeable par `UPLOADS_DIR`). Le nom d'origine est conservé dans `fichierAuditNom`, le nom assaini sur disque dans `fichierAuditChemin`. Un PDF de plus de 10 Mo est refusé. Si l'écriture disque échoue, la fiche créée est retirée pour ne pas laisser un dossier incomplet.
+Les fichiers sont écrits dans `uploads/audits/<clientId>/` (surchargeable par `UPLOADS_DIR`). Le nom d'origine est conservé dans `fichierAuditNom`, le nom assaini sur disque dans `fichierAuditChemin`. Formats acceptés : PDF, DOCX, PNG, JPG, WEBP, dans la limite de 10 Mo. Si l'écriture disque échoue, la fiche créée est retirée pour ne pas laisser un dossier incomplet.
+
+### Fiche client
+
+`/admin/clients/[id]` regroupe les coordonnées, les notes d'audit internes, le fichier brut et les liens publics. Le bouton « Marquer l'audit comme fait » n'apparaît que sur une fiche au statut `RDV_PLANIFIE`. Il permet de corriger les coordonnées, de noter ce qui est ressorti de l'échange et de joindre le fichier, puis passe le statut à `AUDIT_FAIT`. Le fichier y reste facultatif : marquer un audit comme fait ne doit pas être bloqué par une pièce qui n'est pas sous la main.
+
+Le fichier est servi par `/api/admin/clients/[id]/fichier-audit`, jamais par une URL directe. Cette route ne traverse pas le layout du groupe protégé : elle vérifie la session elle-même et redirige vers la connexion. Un nouvel envoi remplace l'ancien fichier, il n'y a pas d'historique de versions.
 
 Les fiches créées à la main n'ont pas de `calendlyEventUri` : le dashboard les marque « Saisie manuelle ».
 

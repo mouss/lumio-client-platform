@@ -59,6 +59,10 @@ export function FormulaireNouveauClient({
   const [dateLocale, setDateLocale] = useState("");
   const [etat, envoyer] = useFormState(action, VIDE);
 
+  // useFormState peut rendre undefined pendant une transition : lire erreurs sur l'etat
+  // brut casse alors le rendu.
+  const erreurs = etat?.erreurs ?? {};
+
   const modeAudit = mode === "audit";
 
   return (
@@ -105,12 +109,12 @@ export function FormulaireNouveauClient({
         </button>
       </fieldset>
 
-      {etat.erreurs.general ? (
+      {erreurs.general ? (
         <p
           role="alert"
           className="rounded-md border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300"
         >
-          {etat.erreurs.general}
+          {erreurs.general}
         </p>
       ) : null}
 
@@ -118,13 +122,13 @@ export function FormulaireNouveauClient({
         <label className="flex flex-col gap-2 text-sm text-lumio-white/70">
           Nom et prénom *
           <input type="text" name="nom" required className={CHAMP} />
-          <Erreur message={etat.erreurs.nom} />
+          <Erreur message={erreurs.nom} />
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-lumio-white/70">
           Email *
           <input type="email" name="email" required className={CHAMP} />
-          <Erreur message={etat.erreurs.email} />
+          <Erreur message={erreurs.email} />
         </label>
 
         <label className="flex flex-col gap-2 text-sm text-lumio-white/70">
@@ -146,7 +150,7 @@ export function FormulaireNouveauClient({
             className={CHAMP}
           />
           <input type="hidden" name="dateAudit" value={versIso(dateLocale)} />
-          <Erreur message={etat.erreurs.dateAudit} />
+          <Erreur message={erreurs.dateAudit} />
         </label>
       </div>
 
@@ -163,15 +167,15 @@ export function FormulaireNouveauClient({
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-lumio-white/70">
-            PDF de l&apos;audit * (10 Mo maximum)
+            Fichier d&apos;audit * (10 Mo maximum, PDF, DOCX ou image)
             <input
               type="file"
               name="fichier"
-              accept="application/pdf,.pdf"
+              accept=".pdf,.docx,.png,.jpg,.jpeg,.webp"
               required
               className="text-lumio-white/70 file:mr-3 file:rounded-md file:border-0 file:bg-lumio-blue-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-lumio-black"
             />
-            <Erreur message={etat.erreurs.fichier} />
+            <Erreur message={erreurs.fichier} />
           </label>
         </div>
       ) : null}

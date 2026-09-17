@@ -1,32 +1,16 @@
 "use server";
 
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import {
+  controlerFichier,
+  enregistrerFichierAudit,
+} from "@/lib/fichiers-audit";
 
 export type EtatFormulaire = {
   erreurs: Record<string, string>;
 };
-
-const TAILLE_MAX_PDF = 10 * 1024 * 1024;
-
-function dossierDepot(): string {
-  return process.env.UPLOADS_DIR ?? path.join(process.cwd(), "uploads");
-}
-
-/*
-  Nom du fichier sur le disque. On ne garde que le nom de base de ce qui a ete envoye,
-  puis on remplace tout caractere hors liste blanche : un nom d'origine ne doit jamais
-  pouvoir sortir du dossier de depot.
-  Le nom d'origine reste stocke tel quel dans fichierAuditNom, pour l'affichage.
-*/
-function nomSurDisque(nomOrigine: string): string {
-  const base = path.basename(nomOrigine).replace(/[^a-zA-Z0-9._-]/g, "_");
-
-  return base.slice(-120) || "audit.pdf";
-}
 
 function emailValide(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -73,18 +57,12 @@ export async function creerClient(
   let fichierRetenu: File | null = null;
 
   if (modeAudit) {
-    if (!(fichier instanceof File) || fichier.size === 0) {
-      erreurs.fichier = "Le PDF de l'audit est obligatoire.";
-    } else if (fichier.size > TAILLE_MAX_PDF) {
-      erreurs.fichier = "Le PDF dépasse 10 Mo.";
-    } else if (
-      (fichier.type && fichier.type !== "application/pdf") ||
-      !fichier.name.toLowerCase().endsWith(".pdf")
-    ) {
-      // Le type MIME peut etre vide selon le navigateur : l'extension sert de second controle.
-      erreurs.fichier = "Le fichier doit être un PDF.";
+    const controle = controlerFichier(fichier);
+
+    if (controle.valide) {
+      fichierRetenu = controle.fichier;
     } else {
-      fichierRetenu = fichier;
+      erreurs.fichier = controle.erreur;
     }
   }
 
@@ -107,38 +85,34 @@ export async function creerClient(
   });
 
   if (fichierRetenu) {
-    const dossier = path.join(dossierDepot(), "audits", client.id);
-    const chemin = path.join(dossier, nomSurDisque(fichierRetenu.name));
-
     try {
-      await mkdir(dossier, { recursive: true });
-      await writeFile(chemin, Buffer.from(await fichierRetenu.arrayBuffer()));
+      const enregistre = await enregistrerFichierAudit(client.id, fichierRetenu);
 
       await prisma.client.update({
         where: { id: client.id },
         data: {
-          fichierAuditNom: fichierRetenu.name.slice(0, 200),
-          fichierAuditChemin: chemin,
+          fichierAuditNom: enregistre.nom,
+          fichierAuditChemin: enregistre.chemin,
         },
       });
     } catch (erreur) {
       console.error(
-        `Enregistrement du PDF d'audit impossible pour la fiche ${client.id} :`,
+        `Enregistrement du fichier d'audit impossible pour la fiche ${client.id} :`,
         erreur,
       );
 
-      // Une fiche sans son PDF serait une fiche incomplete : on retire celle qu'on vient de creer.
+      // Une fiche sans son fichier serait une fiche incomplete : on retire celle qu'on vient de creer.
       await prisma.client.delete({ where: { id: client.id } });
 
       return {
         erreurs: {
           fichier:
-            "Le PDF n'a pas pu être enregistré sur le serveur. Aucune fiche n'a été créée.",
+            "Le fichier n'a pas pu être enregistré sur le serveur. Aucune fiche n'a été créée.",
         },
       };
     }
   }
 
   revalidatePath("/admin");
-  redirect("/admin");
+  return redirect(`/admin/clients/${client.id}`);
 }

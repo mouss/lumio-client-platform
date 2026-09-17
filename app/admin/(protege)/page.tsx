@@ -18,6 +18,7 @@ export default async function PageClients() {
       dateAudit: true,
       statut: true,
       calendlyEventUri: true,
+      fichierAuditNom: true,
     },
   });
 
@@ -34,7 +35,7 @@ export default async function PageClients() {
         </div>
 
         <Link
-          href="/admin/nouveau"
+          href="/admin/clients/nouveau"
           className="rounded-md bg-lumio-blue-light px-4 py-2 text-sm font-medium text-lumio-black transition-colors hover:bg-lumio-blue hover:text-lumio-white"
         >
           Nouveau client
@@ -55,7 +56,8 @@ export default async function PageClients() {
                 <th className="py-3 pr-4 font-medium">Contact</th>
                 <th className="py-3 pr-4 font-medium">Date</th>
                 <th className="py-3 pr-4 font-medium">Statut</th>
-                <th className="py-3 font-medium">Origine</th>
+                <th className="py-3 pr-4 font-medium">Origine</th>
+                <th className="py-3 font-medium">Fichier d&apos;audit</th>
               </tr>
             </thead>
             <tbody>
@@ -65,7 +67,12 @@ export default async function PageClients() {
                   className="border-b border-lumio-white/5 align-top"
                 >
                   <td className="py-4 pr-4">
-                    <span className="text-lumio-white">{client.nom}</span>
+                    <Link
+                      href={`/admin/clients/${client.id}`}
+                      className="text-lumio-white hover:text-lumio-blue-light"
+                    >
+                      {client.nom}
+                    </Link>
                     {client.entreprise ? (
                       <span className="block text-lumio-white/50">
                         {client.entreprise}
@@ -92,8 +99,11 @@ export default async function PageClients() {
                       {libelleStatut(client.statut)}
                     </span>
                   </td>
-                  <td className="py-4 text-lumio-white/50">
+                  <td className="py-4 pr-4 text-lumio-white/50">
                     {client.calendlyEventUri ? "Calendly" : "Saisie manuelle"}
+                  </td>
+                  <td className="py-4 text-lumio-white/50">
+                    {client.fichierAuditNom ? "Oui" : "Non"}
                   </td>
                 </tr>
               ))}
