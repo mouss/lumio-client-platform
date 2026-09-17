@@ -233,7 +233,7 @@ Ces points ont été relevés à la création du projet, le 2026-09-17. Ils ne s
 
 ### Tranché
 
-- **2026-09-17, audit payant et premier palier.** Un Audit IA déjà payé ne se déduit jamais du premier palier de 20 % du Sprint. Les deux paiements restent distincts, ils ne se compensent pas. Décision de Moussa. Le `[À trancher]` porté par `offres.md` dans le vault peut donc être levé (le vault se modifie à la main, hors de ce projet).
+- **2026-09-17, audit payant et premier palier.** Un Audit IA déjà payé ne se déduit jamais du premier palier de 20 % du Sprint. Les deux paiements restent distincts, ils ne se compensent pas. Décision de Moussa. Le `[À trancher]` correspondant a été retiré de `offres.md` dans le vault le 2026-09-17 et remplacé par la décision.
 
 ## 8. Documents liés
 
