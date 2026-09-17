@@ -13,11 +13,12 @@ Au 2026-09-17 : squelette de projet et modèle de données terminés. Les pages 
 Vérifié réellement :
 
 - `npm run build` passe, 13 routes générées, type checking et lint inclus.
-- Le serveur répond : `/`, `/admin`, `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]` en 200, les 7 routes API en 501.
+- Le serveur répond : `/`, `/admin`, `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]` en 200. Les 6 routes API métier (`clients`, `offres`, `abonnements`, `emails`, `questionnaire`, `updates`) renvoient encore `501 not_implemented` et attendent leur écran.
 - La migration `20260917114402_init` s'applique : 9 tables plus `_prisma_migrations`.
 - Les modèles fonctionnent à l'exécution : création d'un client, token UUID v4 auto-généré sur 36 caractères, statut par défaut `RDV_PLANIFIE`, lecture par token, suppression.
+- Le webhook Calendly fonctionne, vérifié sur 11 cas : signature absente, fausse, corps falsifié et horodatage périmé rejetés en `401`, autre type d'événement ignoré, réservation créant la fiche, relivraison sans doublon, annulation passant la fiche en `RDV_ANNULE`, annulation inconnue ignorée, corps illisible en `400`.
 
-N'existe pas encore : authentification de `/admin`, webhook Calendly, envoi d'emails, génération du PDF d'audit, suite de tests.
+N'existe pas encore : authentification de `/admin`, écrans des 6 routes API métier, envoi d'emails, génération du PDF d'audit, suite de tests automatisée.
 
 ## Arborescence
 
@@ -105,6 +106,27 @@ Trois pièges vérifiés le 2026-09-17 :
 - `better-sqlite3` est un module natif. Il doit rester dans `serverComponentsExternalPackages` (`next.config.mjs`), sinon webpack l'embarque et le paquet `bindings` ne retrouve plus son binaire : `TypeError: Cannot read properties of undefined (reading 'indexOf')`.
 - Les entiers remontent en `BigInt`. `NextResponse.json` lève alors `TypeError: Do not know how to serialize a BigInt`. Convertir avant de renvoyer.
 - Le dist-tag `latest` du paquet `prisma` pointait sur une release candidate (`8.0.0-rc.15`) le 2026-09-17. Toujours installer `prisma` avec la version exacte de `@prisma/client`.
+
+## Webhook Calendly
+
+`app/api/webhooks/calendly/route.ts` reçoit les réservations et les annulations.
+
+| Code | Quand |
+| --- | --- |
+| `201` | fiche client créée |
+| `200` | relivraison, type d'événement non concerné, ou annulation d'un rendez-vous inconnu |
+| `400` | corps illisible alors que la signature est valide |
+| `401` | signature absente, fausse, ou horodatage hors des 180 secondes de tolérance |
+| `422` | signature valide mais charge inexploitable : type d'événement, URI d'événement, email ou créneau manquant |
+| `500` | `CALENDLY_WEBHOOK_SIGNING_KEY` absent du `.env` |
+
+La signature est vérifiée avant toute lecture du contenu : en-tête `Calendly-Webhook-Signature` au format `t=<horodatage>,v1=<hmac>`, HMAC-SHA256 sur `{t}.{corps brut}`, comparaison en temps constant. Le corps est lu une seule fois, en brut, jamais resérialisé.
+
+`CALENDLY_AUDIT_EVENT_URI` filtre les rendez-vous. Sans lui, tous les types d'événements sont traités. S'il est renseigné et que la charge n'expose aucun type d'événement, la requête est refusée en `422` plutôt que de créer une fiche non identifiable.
+
+Le champ `calendlyEventUri` sert de clé d'idempotence : une même réservation relivrée ne crée jamais deux fiches. Une annulation ne supprime rien, elle passe le statut à `RDV_ANNULE` pour garder la trace de la réservation d'origine.
+
+Les champs `entreprise` et `telephone` sont préremplis depuis les questions personnalisées Calendly, par recherche de mots-clés insensible aux accents et à la casse. Si aucune question ne correspond, ils restent vides et s'éditent dans l'admin.
 
 ## Tests
 
