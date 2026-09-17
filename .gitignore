@@ -12,6 +12,9 @@ next-env.d.ts
 # Client Prisma généré (recréé par prisma generate, voir le script postinstall)
 /generated/
 
+# PDF d'audit déposés par l'admin : données clients, jamais versionnées
+/uploads/
+
 # Base de données locale SQLite
 *.db
 *.db-journal

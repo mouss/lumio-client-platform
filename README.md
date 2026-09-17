@@ -8,23 +8,28 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-17 : squelette de projet et modèle de données terminés. Les pages et les routes API existent et répondent, mais restent des écrans à construire et renvoient `501 not_implemented`. Le schéma Prisma est écrit, migré, et les 9 tables existent.
+Au 2026-09-17 : modèle de données, réception Calendly, authentification de l'espace interne, dashboard et formulaire de création terminés. Les écrans publics et les routes API métier restent à construire.
 
 Vérifié réellement :
 
-- `npm run build` passe, 13 routes générées, type checking et lint inclus.
-- Le serveur répond : `/`, `/admin`, `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]` en 200. Les 6 routes API métier (`clients`, `offres`, `abonnements`, `emails`, `questionnaire`, `updates`) renvoient encore `501 not_implemented` et attendent leur écran.
+- `npm run build` passe, 15 routes générées, type checking et lint inclus.
 - La migration `20260917114402_init` s'applique : 9 tables plus `_prisma_migrations`.
-- Les modèles fonctionnent à l'exécution : création d'un client, token UUID v4 auto-généré sur 36 caractères, statut par défaut `RDV_PLANIFIE`, lecture par token, suppression.
+- Les modèles fonctionnent à l'exécution : token UUID v4 auto-généré, statut par défaut, lecture par token.
 - Le webhook Calendly fonctionne, vérifié sur 11 cas : signature absente, fausse, corps falsifié et horodatage périmé rejetés en `401`, autre type d'événement ignoré, réservation créant la fiche, relivraison sans doublon, annulation passant la fiche en `RDV_ANNULE`, annulation inconnue ignorée, corps illisible en `400`.
+- L'espace interne est protégé : `/admin` et `/admin/nouveau` renvoient `307` vers `/admin/login` sans session, cookie forgé rejeté.
+- Le formulaire « Nouveau client » fonctionne dans un vrai navigateur, dans ses deux modes, avec un PDF réellement écrit sur le disque.
 
-N'existe pas encore : authentification de `/admin`, écrans des 6 routes API métier, envoi d'emails, génération du PDF d'audit, suite de tests automatisée.
+N'existe pas encore : écrans des 6 routes API métier, pages publiques `/offres/[token]`, `/espace/[token]` et `/onboarding/[token]`, envoi d'emails, génération du PDF d'audit, accès au PDF depuis la fiche client, suite de tests automatisée.
 
 ## Arborescence
 
 ```
 app/
-  admin/                  dashboard interne, protégé
+  admin/
+    login/                connexion, hors zone protégée
+    (protege)/            tout ce qui exige une session
+      page.tsx            dashboard : liste des clients
+      nouveau/            formulaire de création, deux modes
   offres/[token]/         page publique, avant signature : audit + proposition
   espace/[token]/         espace client public, après signature
   onboarding/[token]/     questionnaire public, 10 à 15 questions
@@ -37,9 +42,10 @@ app/
     updates/              mises à jour publiées dans l'espace client
     webhooks/calendly/    réservations et annulations Calendly
 components/               composants réutilisables, style Lumio
-lib/                      client Prisma, envoi d'emails, génération de roadmap
+lib/                      client Prisma, session, emails, roadmap, formatage, libellés
 prisma/                   schema.prisma et migrations
 generated/prisma/         client Prisma généré, ignoré par git
+uploads/audits/           PDF d'audit déposés, ignoré par git
 prisma7.config.ts         configuration de la CLI Prisma 7
 ```
 
@@ -54,7 +60,7 @@ Couleurs déclarées dans `tailwind.config.ts` sous le préfixe `lumio` : `lumio
 ## Prérequis
 
 - Node.js 24 ou plus récent.
-- Un fichier `.env` dérivé de `.env.example`.
+- Un fichier `.env` dérivé de `.env.example`, avec `ADMIN_PASSWORD` renseigné, sinon l'espace interne refuse toute connexion.
 
 ## Lancement
 
@@ -65,7 +71,7 @@ npm run db:migrate   # crée le fichier SQLite et applique les migrations
 npm run dev
 ```
 
-L'application écoute sur `http://localhost:3000`.
+L'application écoute sur `http://localhost:3000`, l'espace interne sur `/admin`.
 
 ## Scripts
 
@@ -79,13 +85,36 @@ L'application écoute sur `http://localhost:3000`.
 | `npm run db:push` | applique le schéma sans créer de migration |
 | `npm run db:generate` | régénère le client Prisma |
 
+## Espace interne
+
+Accès protégé par un mot de passe unique dans `ADMIN_PASSWORD`. Changer ce mot de passe invalide immédiatement toutes les sessions ouvertes.
+
+La protection vit dans `app/admin/(protege)/layout.tsx` et non dans un `middleware.ts` : dans le runtime edge d'un middleware, `process.env` est figé au build alors que la connexion lit `ADMIN_PASSWORD` au runtime, ce qui ferait boucler les redirections après un changement de mot de passe sans reconstruction. Conséquence pratique : tout nouvel écran interne se place dans `app/admin/(protege)/`.
+
+Le cookie de session est un jeton signé HMAC-SHA256, valable 7 jours, `httpOnly`. Le format et la vérification sont dans `lib/session.ts`.
+
+### Formulaire « Nouveau client »
+
+Deux modes, pour les rendez-vous qui ne passent pas par Calendly :
+
+| Mode | Statut initial | Champs supplémentaires |
+| --- | --- | --- |
+| RDV à venir | `RDV_PLANIFIE`, identique au webhook | aucun |
+| Audit déjà fait | `AUDIT_FAIT` | notes d'audit, PDF de l'audit obligatoire |
+
+Le socle commun est nom, email, entreprise, téléphone et une date. La date est convertie en UTC par le navigateur avant envoi : le fuseau du serveur n'influence donc rien, et l'affichage se fait en heure de Paris.
+
+Les PDF sont écrits dans `uploads/audits/<clientId>/` (surchargeable par `UPLOADS_DIR`). Le nom d'origine est conservé dans `fichierAuditNom`, le nom assaini sur disque dans `fichierAuditChemin`. Un PDF de plus de 10 Mo est refusé. Si l'écriture disque échoue, la fiche créée est retirée pour ne pas laisser un dossier incomplet.
+
+Les fiches créées à la main n'ont pas de `calendlyEventUri` : le dashboard les marque « Saisie manuelle ».
+
 ## Modèle de données
 
 9 modèles dans `prisma/schema.prisma` :
 
 | Modèle | Relation au client | Rôle |
 | --- | --- | --- |
-| `Client` | racine | fiche créée par le webhook Calendly, porte le token public |
+| `Client` | racine | fiche créée par le webhook Calendly ou à la main, porte le token public |
 | `RestitutionAudit` | un pour un | restitution de l'audit, éditable tant qu'elle n'est pas envoyée |
 | `Offre` | plusieurs | Quick Win, Extension Second Cerveau ou Sprint, historisés |
 | `Abonnement` | plusieurs | maintenance mensuelle, créée à l'acceptation |
@@ -130,7 +159,7 @@ Les champs `entreprise` et `telephone` sont préremplis depuis les questions per
 
 ## Tests
 
-Aucune suite de tests n'existe à ce jour.
+Aucune suite de tests automatisée. Les vérifications du 2026-09-17 ont été faites à la main : appels HTTP réels pour le webhook et la protection de l'espace interne, parcours complet dans un navigateur pour le formulaire, inspection directe du fichier SQLite et des PDF écrits.
 
 ## Conventions
 

@@ -233,6 +233,13 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 - Le token public du client est un `uuid()` généré par la base à la création, jamais saisi à la main. Il sert du premier email jusqu'à la fin du projet.
 - Les montants sont en `Float`, exprimés en euros HT.
 
+### Espace interne `/admin`
+
+- La protection vit dans `app/admin/(protege)/layout.tsx`, pas dans un `middleware.ts`. Motif : dans le runtime edge d'un middleware, `process.env` est figé au build, alors que l'action de connexion lit `ADMIN_PASSWORD` au runtime. Un changement de mot de passe sans reconstruction ferait boucler les redirections entre les deux. Un seul runtime, une seule lecture.
+- Le cookie de session est un jeton signé HMAC-SHA256 avec une clé dérivée de `ADMIN_PASSWORD`, ce qui invalide toutes les sessions en cours quand le mot de passe change. Le format et la vérification sont dans `lib/session.ts`, en Web Crypto.
+- `app/admin/login` vit hors du groupe de routes protégé. Tout nouvel écran de l'espace interne se place dans `app/admin/(protege)/`, sinon il est accessible sans connexion.
+- Les PDF d'audit sont écrits dans `uploads/audits/<clientId>/`, hors du dépôt git. Le nom d'origine est conservé dans `fichierAuditNom`, le nom assaini sur disque dans `fichierAuditChemin`. Un nom d'origine ne doit jamais servir de chemin sans passer par `path.basename` et une liste blanche de caractères.
+
 ## 7. Écarts et points à trancher
 
 Ces points ont été relevés à la création du projet, le 2026-09-17. Ils ne sont pas bloquants pour écrire du code, mais ils bloquent tout texte affiché à un client.
