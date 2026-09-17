@@ -154,7 +154,7 @@ export function SectionOffre({
     if (nouveauType === "EXTENSION_SECOND_CERVEAU") {
       setMontant(String(CONTENU_SECOND_CERVEAU.montantUpsell));
       setDescription(CONTENU_SECOND_CERVEAU.description);
-      setModalite("");
+      setModalite(CONTENU_SECOND_CERVEAU.modaliteFacturement);
       return;
     }
 

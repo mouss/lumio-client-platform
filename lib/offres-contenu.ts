@@ -48,6 +48,9 @@ export const CONTENU_SECOND_CERVEAU = {
   montantUpsell: 500,
   // Pack dedie : les deux vendus ensemble des le depart.
   montantPackDedie: 990,
+  // Meme logique de paiement que le Pack Quick Win.
+  modaliteFacturement:
+    "Paiement en une fois, facture émise à la validation de l'offre par le client",
 };
 
 export const CONTENU_SPRINT = {
