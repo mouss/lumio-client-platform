@@ -249,6 +249,9 @@ Un commit par changement cohérent, message court à l'impératif préfixé `fea
 - Sur la page publique de proposition, le token fait office d'autorisation : uuid v4, non devinable, et `robots: noindex` sur la page.
 - La validation en ligne vaut accord écrit, **pas signature électronique qualifiée**. La mention affichée sous le bouton doit le dire sans ambiguïté, pour ne pas laisser croire à une valeur juridique qu'elle n'a pas.
 - Un email qui échoue ne doit pas annuler l'écrit. L'accord est enregistré d'abord, l'email part ensuite : si le SMTP manque, le client reste au statut qui décrit exactement la situation (accord signé, questionnaire pas encore envoyé).
+- **Aucun formulaire public ne demande d'identifiant.** La question des accès techniques est une liste à cocher qui dit quels comptes ouvrir, jamais un champ où un client collerait un mot de passe. Un formulaire client est un endroit qu'on ne contrôle pas.
+- Un formulaire public qui nourrit une étape suivante se ferme quand cette étape a commencé : le questionnaire reste modifiable tant que l'analyse interne n'est pas faite, puis passe en lecture seule. Ses réponses servent de base à l'appel de lancement, elles ne doivent plus bouger après avoir été lues.
+- Le statut d'un client doit décrire où il en est vraiment. Une validation enregistrée sans email envoyé, et un questionnaire annoncé mais pas encore parti, ne sont pas le même état : ne pas faire avancer un statut sur une action qui a échoué.
 - Le contenu client (restitution, offre) ne contient aucun vocabulaire interne. Les notes d'audit sont internes, la restitution est publique : ne pas les confondre.
 
 ## 7. Écarts et points à trancher
