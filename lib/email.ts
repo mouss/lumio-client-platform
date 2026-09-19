@@ -41,9 +41,14 @@ export type SendMailInput = {
   subject: string;
   text: string;
   html?: string;
+  /*
+    Pieces jointes en memoire : le buffer du PDF est fabrique par l'application, jamais
+    ecrit sur le disque. Rien a nettoyer, rien a exposer par une URL.
+  */
+  attachments?: Array<{ filename: string; content: Buffer }>;
 };
 
-export async function sendMail({ to, subject, text, html }: SendMailInput) {
+export async function sendMail({ to, subject, text, html, attachments }: SendMailInput) {
   const from = process.env.SMTP_USER;
 
   if (!from) {
@@ -52,5 +57,5 @@ export async function sendMail({ to, subject, text, html }: SendMailInput) {
     );
   }
 
-  return getTransport().sendMail({ from, to, subject, text, html });
+  return getTransport().sendMail({ from, to, subject, text, html, attachments });
 }

@@ -6,8 +6,7 @@ import {
   controlerFichier,
   enregistrerFichierAudit,
 } from "@/lib/fichiers-audit";
-import { sendMail } from "@/lib/email";
-import { urlPublique } from "@/lib/urls";
+import { envoyerEmailOffre } from "@/lib/emails/envoi-offre";
 import {
   CONTENU_QUICK_WIN,
   CONTENU_SECOND_CERVEAU,
@@ -413,9 +412,14 @@ export async function creerOffre(
 }
 
 /*
-  Envoi de l'offre par email. Passe par lib/email.ts, donc exige un SMTP configure dans
-  le .env. Sans configuration, l'action renvoie une erreur explicite plutot que d'echouer
-  en silence.
+  Envoi de l'offre par email au prospect, depuis la fiche client.
+  Le contenu du message et la piece jointe vivent dans lib/emails/envoi-offre.ts : cette
+  action ne fait que retrouver l'offre, verifier que la restitution existe, et appeler le
+  template. Passe par lib/email.ts, donc exige un SMTP configure dans le .env. Sans
+  configuration, l'action renvoie une erreur explicite plutot que d'echouer en silence.
+
+  La restitution part en piece jointe : sans elle, l'email promettrait un document qui
+  n'existe pas, donc l'envoi est refuse.
 */
 export async function envoyerOffreParEmail(
   _etat: EtatFormulaire,
@@ -431,10 +435,22 @@ export async function envoyerOffreParEmail(
     where: { id: offreId },
     select: {
       titre: true,
-      montant: true,
-      modaliteFacturement: true,
       client: {
-        select: { id: true, nom: true, email: true, token: true },
+        select: {
+          id: true,
+          nom: true,
+          entreprise: true,
+          email: true,
+          token: true,
+          dateAudit: true,
+          restitution: {
+            select: {
+              syntheseDiagnostic: true,
+              opportunites: true,
+              roiEstime: true,
+            },
+          },
+        },
       },
     },
   });
@@ -443,30 +459,20 @@ export async function envoyerOffreParEmail(
     return { erreurs: { general: "Offre introuvable." } };
   }
 
-  const lien = urlPublique(`/offres/${offre.client.token}`);
-  const montantAffiche = Number(offre.montant).toLocaleString("fr-FR");
-
-  const corps = [
-    `Bonjour ${offre.client.nom},`,
-    "",
-    "Comme convenu, voici la restitution de votre audit et la proposition qui en découle :",
-    lien,
-    "",
-    `Offre : ${offre.titre}`,
-    `Montant : ${montantAffiche} € HT`,
-    `Modalités : ${offre.modaliteFacturement}`,
-    "",
-    "Je reste disponible pour en parler.",
-    "",
-    "Moussa Diallo",
-    "Lumio Digital",
-  ].join("\n");
+  if (!offre.client.restitution) {
+    return {
+      erreurs: {
+        general:
+          "La restitution de l'audit doit être enregistrée avant d'envoyer l'offre : c'est elle qui part en pièce jointe.",
+      },
+    };
+  }
 
   try {
-    await sendMail({
-      to: offre.client.email,
-      subject: `Votre audit et notre proposition, ${offre.titre}`,
-      text: corps,
+    await envoyerEmailOffre({
+      client: offre.client,
+      offreTitre: offre.titre,
+      restitution: offre.client.restitution,
     });
   } catch (erreur) {
     console.error(
@@ -483,7 +489,10 @@ export async function envoyerOffreParEmail(
 
   rafraichir(offre.client.id);
 
-  return { erreurs: {}, succes: `Offre envoyée à ${offre.client.email}.` };
+  return {
+    erreurs: {},
+    succes: `Offre envoyée à ${offre.client.email}, avec la restitution en PDF.`,
+  };
 }
 
 /*

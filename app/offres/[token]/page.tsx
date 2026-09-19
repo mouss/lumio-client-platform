@@ -129,6 +129,18 @@ export default async function OffrePage({
               </p>
             </div>
           ) : null}
+
+          <div className="mt-8">
+            <a
+              href={`/api/offres/${client.token}/pdf`}
+              className="inline-block rounded-md bg-lumio-blue px-5 py-2.5 text-sm font-medium text-lumio-white transition hover:bg-lumio-blue-light hover:text-lumio-black"
+            >
+              Télécharger le PDF
+            </a>
+            <p className="mt-2 text-xs text-lumio-white/45">
+              La restitution complète, à garder ou à montrer en interne.
+            </p>
+          </div>
         </section>
       ) : null}
 

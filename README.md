@@ -28,9 +28,10 @@ Vérifié réellement :
 - Le questionnaire s'ouvre à l'acceptation, refuse un client pas encore signé en `409`, passe le client à `QUESTIONNAIRE_COMPLETE` à l'envoi, et conserve la date de première completion quand le client le renvoie corrigé.
 - Les branches de refus du questionnaire sont exercées : token absent en `422`, token inconnu en `404`, client non signé en `409`, client déjà passé à l'analyse en `409`, champs manquants en `422` avec le détail par champ.
 - Les réponses remontent sur la fiche client dans l'admin, accès techniques compris.
-- Les deux emails partent réellement, vérifiés avec un vrai compte le 2026-09-19 : l'email de bienvenue à l'acceptation (le client passe alors à `QUESTIONNAIRE_ENVOYE`, ce qui prouve la branche de succès) et l'envoi de l'offre depuis la fiche client.
+- Les deux emails partent réellement, vérifiés avec un vrai compte le 2026-09-19 : l'email de bienvenue à l'acceptation (le client passe alors à `QUESTIONNAIRE_ENVOYE`, ce qui prouve la branche de succès) et l'envoi de l'offre depuis la fiche client, avec la restitution en PDF en pièce jointe.
+- Le PDF de restitution se télécharge et se rend correctement, vérifié en le convertissant en image : logo en en-tête, filet et puces bleus, encart d'impact, pied de page. Un token inconnu renvoie `404`, une fiche sans restitution aussi.
 
-N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, emails de relance et de suivi, suite de tests automatisée.
+N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, emails de relance et de suivi, analyse interne, feuille de route, suite de tests automatisée.
 
 ## Arborescence
 
@@ -50,6 +51,7 @@ app/
     clients/              fiches clients
     offres/               offres commerciales
     offres/[token]/accepter/  acceptation de l'offre par le prospect, route publique
+    offres/[token]/pdf/   restitution en PDF, route publique
     abonnements/          maintenance et échéances
     emails/               envoi des emails clients
     questionnaire/        réponses au questionnaire
@@ -59,7 +61,10 @@ app/
                           sert le fichier d'audit, session vérifiée dans la route
 components/               composants réutilisables, style Lumio
 lib/                      Prisma, session, fichiers d'audit, contenu des offres,
-                          emails, roadmap, urls, formatage, libellés
+                          urls, formatage, libellés
+lib/pdf/                  restitution en PDF, composant et génération
+lib/emails/               templates d'emails clients
+public/logo-lumio.png     logo Lumio, lu et embarqué dans le PDF
 prisma/                   schema.prisma et migrations
 generated/prisma/         client Prisma généré, ignoré par git
 uploads/audits/           fichiers d'audit déposés, ignoré par git
@@ -192,6 +197,20 @@ La question des accès techniques est une liste à cocher (CRM, email, API, outi
 Ouverture : le questionnaire est accessible aux statuts `OFFRE_ACCEPTEE`, `QUESTIONNAIRE_ENVOYE` et `QUESTIONNAIRE_COMPLETE`, c'est-à-dire dès l'acceptation même si l'email d'annonce n'est pas parti. Un client qui n'a pas encore validé voit un message qui le dit, et l'API refuse en `409`. Un client déjà passé à l'analyse interne le voit en lecture seule : les réponses servent de base à l'appel de lancement, elles ne doivent plus changer après avoir été lues.
 
 Un renvoi met à jour les réponses et laisse `completedAt` à sa valeur d'origine, pour ne pas fausser la date de première réception.
+
+## PDF de restitution `/api/offres/[token]/pdf`
+
+Le prospect télécharge sa restitution d'audit en PDF depuis la page de proposition, et la reçoit aussi en pièce jointe de l'email d'offre. Les deux passent par `genererPdfRestitution(client, restitution)` dans `lib/pdf/restitution-pdf.tsx` : une seule fabrication du document, jamais deux.
+
+Le PDF est produit en mémoire par `@react-pdf/renderer`, jamais écrit sur le disque. Rien à nettoyer, rien à exposer par une URL.
+
+Charte imprimable : fond blanc, texte noir, titres et accents en bleu `#0054A6`. Le bleu clair est réservé au fond sombre, il n'apparaît pas ici. Police Helvetica, fournie par le lecteur PDF, en attendant l'intégration de RNS Sanz. Le logo est lu dans `public/logo-lumio.png` et embarqué en data URI : si le fichier disparaît, l'en-tête retombe sur un logotype texte plutôt que de faire échouer la génération.
+
+Le nom du fichier est construit depuis l'entreprise du client, accents et espaces retirés : `Audit-IA-Lumio-Imprimerie-des-Vosges.pdf`. Un nom de fichier téléchargé traverse des systèmes qui ne gèrent pas les accents.
+
+Le document ne reprend pas le champ `recommandation` de la restitution : ce champ fait la transition vers l'offre sur la page web, et il serait orphelin dans un PDF qui ne contient pas l'offre.
+
+L'email d'offre vit dans `lib/emails/envoi-offre.ts` : il remercie pour le temps accordé pendant l'audit, annonce la restitution et la proposition sur le lien public, et joint le PDF. L'action admin refuse l'envoi si la restitution n'existe pas, pour ne pas promettre une pièce jointe qui n'existe pas.
 
 ## Modèle de données
 
