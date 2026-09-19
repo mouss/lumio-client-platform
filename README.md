@@ -28,8 +28,9 @@ Vérifié réellement :
 - Le questionnaire s'ouvre à l'acceptation, refuse un client pas encore signé en `409`, passe le client à `QUESTIONNAIRE_COMPLETE` à l'envoi, et conserve la date de première completion quand le client le renvoie corrigé.
 - Les branches de refus du questionnaire sont exercées : token absent en `422`, token inconnu en `404`, client non signé en `409`, client déjà passé à l'analyse en `409`, champs manquants en `422` avec le détail par champ.
 - Les réponses remontent sur la fiche client dans l'admin, accès techniques compris.
+- Les deux emails partent réellement, vérifiés avec un vrai compte le 2026-09-17 : l'email de bienvenue à l'acceptation (le client passe alors à `QUESTIONNAIRE_ENVOYE`, ce qui prouve la branche de succès) et l'envoi de l'offre depuis la fiche client.
 
-N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, envoi des emails du parcours d'onboarding, suite de tests automatisée.
+N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, emails de relance et de suivi, suite de tests automatisée.
 
 ## Arborescence
 
@@ -77,6 +78,9 @@ Couleurs déclarées dans `tailwind.config.ts` sous le préfixe `lumio` : `lumio
 
 - Node.js 24 ou plus récent.
 - Un fichier `.env` dérivé de `.env.example`, avec `ADMIN_PASSWORD` renseigné, sinon l'espace interne refuse toute connexion.
+- Pour que les emails partent réellement : `SMTP_HOST`, `SMTP_USER` et `SMTP_PASSWORD`. L'identité d'expéditeur est `onboarding@lumio-digital.online` chez IONOS (`smtp.ionos.fr`, port 587). Sans ces trois variables, l'application fonctionne mais aucun email ne part : l'accord du client est enregistré et le client reste au statut qui décrit la situation réelle.
+
+Attention : les identifiants SMTP vivent dans le `.env` **du projet**. Celui de Hermes (`~/.hermes/.env`) n'est pas lu par Next.js.
 
 ## Lancement
 
