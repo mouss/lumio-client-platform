@@ -14,7 +14,7 @@ Vérifié réellement :
 
 - `npm run build` passe, 17 routes générées, type checking et lint inclus.
 - La migration `20260917114402_init` s'applique : 9 tables plus `_prisma_migrations`.
-- Le webhook Calendly fonctionne, vérifié sur 11 cas : signature absente, fausse, corps falsifié et horodatage périmé rejetés en `401`, autre type d'événement ignoré, réservation créant la fiche, relivraison sans doublon, annulation passant la fiche en `RDV_ANNULE`, annulation inconnue ignorée, corps illisible en `400`.
+- Le webhook Calendly est écrit et testé sur 11 cas (signature absente, fausse, corps falsifié, horodatage périmé rejetés en `401`, type d'événement non concerné ignoré, réservation créant la fiche, relivraison sans doublon, annulation, etc.), mais il est **dormant** : le palier gratuit de Calendly n'autorise pas les webhooks. Sa clé de signature est vide, donc la route refuse tout en `500` et n'écrit rien en base.
 - L'espace interne est protégé : `/admin`, `/admin/clients/nouveau`, `/admin/clients/[id]` et la route du fichier d'audit renvoient `307` vers `/admin/login` sans session, cookie forgé rejeté.
 - Le formulaire « Nouveau client » fonctionne dans un vrai navigateur, dans ses deux modes, avec un fichier réellement écrit sur le disque.
 - Le marquage d'audit et le remplacement du fichier fonctionnent de bout en bout : statut passé à `AUDIT_FAIT`, notes conservées, ancien fichier supprimé du disque, nouveau servi avec son bon type.
@@ -261,7 +261,13 @@ Trois pièges vérifiés le 2026-09-17 :
 - Les entiers remontent en `BigInt`. `NextResponse.json` lève alors `TypeError: Do not know how to serialize a BigInt`. Convertir avant de renvoyer.
 - Le dist-tag `latest` du paquet `prisma` pointait sur une release candidate (`8.0.0-rc.15`) le 2026-09-17. Toujours installer `prisma` avec la version exacte de `@prisma/client`.
 
-## Webhook Calendly
+## Webhook Calendly (en place mais dormant)
+
+**Cette route ne reçoit rien aujourd'hui.** Moussa est sur le palier gratuit de Calendly, qui n'autorise pas les webhooks : la documentation développeur de Calendly indique que l'API en lecture fonctionne sur tous les paliers, y compris le gratuit, mais qu'un abonnement webhook exige un palier payant (Standard et au-dessus).
+
+Décision du 2026-09-19 : les fiches se créent à la main, avec le formulaire « Nouveau client » en mode « RDV à venir », qui reproduit exactement le résultat du webhook. La route reste en place et testée, pour le jour où un palier payant ou une synchronisation par interrogation de l'API serait mis en place : la logique de création y est déjà écrite et exercée.
+
+`CALENDLY_WEBHOOK_SIGNING_KEY` est **volontairement vide**, et c'est une mesure de sécurité, pas un oubli. La route refuse alors toute requête en `500` sans rien écrire en base. Avec une clé de test devinable à la place, n'importe qui aurait pu forger une signature valide et créer des fiches client à distance : une route publique qui écrit en base doit échouer fermée. Vérifié : une requête forgée renvoie `500` et ne crée aucune fiche.
 
 `app/api/webhooks/calendly/route.ts` reçoit les réservations et les annulations.
 
