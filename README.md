@@ -8,7 +8,7 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-17 : le cycle va de la fiche client au questionnaire d'onboarding rempli par le client signé. La proposition et le questionnaire sont en ligne, l'espace client reste à construire.
+Au 2026-09-19 : le cycle va de la fiche client au questionnaire d'onboarding rempli par le client signé, avec de vrais emails. La proposition et le questionnaire sont en ligne, l'espace client reste à construire.
 
 Vérifié réellement :
 
@@ -28,7 +28,7 @@ Vérifié réellement :
 - Le questionnaire s'ouvre à l'acceptation, refuse un client pas encore signé en `409`, passe le client à `QUESTIONNAIRE_COMPLETE` à l'envoi, et conserve la date de première completion quand le client le renvoie corrigé.
 - Les branches de refus du questionnaire sont exercées : token absent en `422`, token inconnu en `404`, client non signé en `409`, client déjà passé à l'analyse en `409`, champs manquants en `422` avec le détail par champ.
 - Les réponses remontent sur la fiche client dans l'admin, accès techniques compris.
-- Les deux emails partent réellement, vérifiés avec un vrai compte le 2026-09-17 : l'email de bienvenue à l'acceptation (le client passe alors à `QUESTIONNAIRE_ENVOYE`, ce qui prouve la branche de succès) et l'envoi de l'offre depuis la fiche client.
+- Les deux emails partent réellement, vérifiés avec un vrai compte le 2026-09-19 : l'email de bienvenue à l'acceptation (le client passe alors à `QUESTIONNAIRE_ENVOYE`, ce qui prouve la branche de succès) et l'envoi de l'offre depuis la fiche client.
 
 N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, génération du PDF d'audit, emails de relance et de suivi, suite de tests automatisée.
 
@@ -244,7 +244,7 @@ Les champs `entreprise` et `telephone` sont préremplis depuis les questions per
 
 ## Tests
 
-Aucune suite de tests automatisée. Les vérifications du 2026-09-17 ont été faites à la main : appels HTTP réels pour le webhook et la protection de l'espace interne, parcours complets dans un navigateur pour les formulaires, inspection directe du fichier SQLite et des fichiers déposés.
+Aucune suite de tests automatisée. Toutes les vérifications ont été faites à la main, entre le 17 et le 19 septembre 2026 : appels HTTP réels pour le webhook, la protection de l'espace interne et les formulaires publics, parcours complets dans un navigateur, inspection directe du fichier SQLite et des fichiers déposés, et envois d'emails réels.
 
 ## Conventions
 
