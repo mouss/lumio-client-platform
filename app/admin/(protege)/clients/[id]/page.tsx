@@ -1,15 +1,28 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { formatDateHeure } from "@/lib/format";
-import { libelleStatut, teinteStatut } from "@/lib/statuts";
+import {
+  formatDateHeure,
+  formatDateLongue,
+  valeurChampDate,
+} from "@/lib/format";
+import {
+  analyseEstFaite,
+  libelleStatut,
+  libelleStatutPhase,
+  teinteStatut,
+} from "@/lib/statuts";
 import { urlPublique } from "@/lib/urls";
 import {
   creerOffre,
+  creerRoadmapType,
+  enregistrerAnalyseInterne,
   enregistrerRestitution,
   envoyerOffreParEmail,
+  marquerAnalyseFaite,
   marquerAuditFait,
   marquerOffreRefusee,
+  mettreAJourPhase,
   remplacerFichierAudit,
 } from "./actions";
 import {
@@ -18,6 +31,8 @@ import {
 } from "./formulaires";
 import { SectionRestitution } from "./restitution";
 import { SectionOffre } from "./offre";
+import { SectionAnalyseInterne } from "./analyse";
+import { SectionRoadmap } from "./roadmap";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +121,25 @@ export default async function PageClient({
           contraintesLegales: true,
           contraintesInternes: true,
           completedAt: true,
+        },
+      },
+      analyseInterne: {
+        select: {
+          problemePrincipal: true,
+          solutionProposee: true,
+          quickWinsVisibles: true,
+          pointsDeVigilance: true,
+        },
+      },
+      roadmapPhases: {
+        orderBy: { dateDebut: "asc" },
+        select: {
+          id: true,
+          nom: true,
+          dateDebut: true,
+          dateFin: true,
+          description: true,
+          statut: true,
         },
       },
     },
@@ -317,6 +351,52 @@ export default async function PageClient({
             son offre est validée.
           </p>
         )}
+      </Section>
+
+      <Section titre="Analyse interne">
+        <p className="mt-2 text-xs text-lumio-white/45">
+          Préparation de l&apos;appel de lancement, étape 3 du guide. Rien de ce
+          qui est saisi ici n&apos;est montré au client.
+        </p>
+        <SectionAnalyseInterne
+          clientId={client.id}
+          analyse={
+            client.analyseInterne
+              ? {
+                  problemePrincipal:
+                    client.analyseInterne.problemePrincipal ?? "",
+                  solutionProposee:
+                    client.analyseInterne.solutionProposee ?? "",
+                  quickWinsVisibles:
+                    client.analyseInterne.quickWinsVisibles ?? "",
+                  pointsDeVigilance:
+                    client.analyseInterne.pointsDeVigilance ?? "",
+                }
+              : null
+          }
+          analyseFaite={analyseEstFaite(client.statut)}
+          actionEnregistrer={enregistrerAnalyseInterne}
+          actionMarquerFaite={marquerAnalyseFaite}
+        />
+      </Section>
+
+      <Section titre="Feuille de route">
+        <SectionRoadmap
+          clientId={client.id}
+          phases={client.roadmapPhases.map((phase) => ({
+            id: phase.id,
+            nom: phase.nom,
+            dateDebutValeur: valeurChampDate(phase.dateDebut),
+            dateFinValeur: valeurChampDate(phase.dateFin),
+            dateDebutAffichee: formatDateLongue(phase.dateDebut),
+            dateFinAffichee: formatDateLongue(phase.dateFin),
+            description: phase.description ?? "",
+            statut: phase.statut,
+            statutLibelle: libelleStatutPhase(phase.statut),
+          }))}
+          actionCreer={creerRoadmapType}
+          actionModifier={mettreAJourPhase}
+        />
       </Section>
 
       <Section titre="Liens à transmettre">

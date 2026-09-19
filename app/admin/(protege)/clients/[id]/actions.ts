@@ -542,3 +542,266 @@ export async function marquerOffreRefusee(
 
   return { erreurs: {}, succes: "Offre marquée refusée." };
 }
+
+/* -------------------------------------------- Analyse interne (etape 3 du guide) */
+
+/*
+  Analyse interne, cote agence, entre le questionnaire et l'appel de lancement.
+  Le guide d'onboarding demande d'arriver a l'appel deja prepare : ces quatre champs
+  sont le document interne a remplir pour chaque client.
+
+  Rien de tout ceci n'est montre au client : c'est la preparation de Moussa.
+*/
+export async function enregistrerAnalyseInterne(
+  _etat: EtatFormulaire,
+  donnees: FormData,
+): Promise<EtatFormulaire> {
+  const clientId = texte(donnees, "clientId");
+  const problemePrincipal = texte(donnees, "problemePrincipal");
+  const solutionProposee = texte(donnees, "solutionProposee");
+  const quickWinsVisibles = texte(donnees, "quickWinsVisibles");
+  const pointsDeVigilance = texte(donnees, "pointsDeVigilance");
+
+  if (!clientId) {
+    return { erreurs: { general: "Fiche client introuvable." } };
+  }
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true },
+  });
+
+  if (!client) {
+    return { erreurs: { general: "Fiche client introuvable." } };
+  }
+
+  const contenu = {
+    problemePrincipal: problemePrincipal || null,
+    solutionProposee: solutionProposee || null,
+    quickWinsVisibles: quickWinsVisibles || null,
+    pointsDeVigilance: pointsDeVigilance || null,
+  };
+
+  await prisma.analyseInterne.upsert({
+    where: { clientId: client.id },
+    create: { clientId: client.id, ...contenu },
+    update: contenu,
+  });
+
+  rafraichir(client.id);
+
+  return { erreurs: {}, succes: "Analyse interne enregistrée." };
+}
+
+/*
+  L'analyse est marquee faite quand Moussa a fini de la relire, pas a la premiere
+  sauvegarde : le questionnaire se ferme a ce moment la, et les reponses du client
+  servent de base a l'appel de lancement. Un enregistrement partiel ne doit pas
+  verrouiller le questionnaire par surprise.
+*/
+export async function marquerAnalyseFaite(
+  _etat: EtatFormulaire,
+  donnees: FormData,
+): Promise<EtatFormulaire> {
+  const clientId = texte(donnees, "clientId");
+
+  if (!clientId) {
+    return { erreurs: { general: "Fiche client introuvable." } };
+  }
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, analyseInterne: { select: { id: true } } },
+  });
+
+  if (!client) {
+    return { erreurs: { general: "Fiche client introuvable." } };
+  }
+
+  if (!client.analyseInterne) {
+    return {
+      erreurs: {
+        general:
+          "Enregistrez d'abord l'analyse interne : elle doit exister avant d'être marquée faite.",
+      },
+    };
+  }
+
+  await prisma.client.update({
+    where: { id: client.id },
+    data: { statut: "ANALYSE_FAITE" },
+  });
+
+  rafraichir(client.id);
+
+  return {
+    erreurs: {},
+    succes:
+      "Analyse marquée faite. Le questionnaire du client passe en lecture seule.",
+  };
+}
+
+/* ------------------------------------------- Feuille de route (etape 5 du guide) */
+
+/*
+  Le guide impose trois phases : diagnostic et setup, build et implementation,
+  stabilisation et livraison. Son exemple tient sur 20 jours : J1 a J5, J6 a J15,
+  J16 a J20. Les trois phases sont creees d'un coup a partir d'une date de debut,
+  puis ajustees une par une.
+*/
+const PHASES_TYPE = [
+  {
+    nom: "Phase 1 : Setup",
+    debutJours: 0,
+    finJours: 4,
+    description:
+      "Accès, cadrage et validation du périmètre avec vos équipes.",
+  },
+  {
+    nom: "Phase 2 : Build",
+    debutJours: 5,
+    finJours: 14,
+    description:
+      "Développement de l'agent et des automatisations, avec des points d'étape.",
+  },
+  {
+    nom: "Phase 3 : Delivery",
+    debutJours: 15,
+    finJours: 19,
+    description:
+      "Tests, démonstration, ajustements et remise de la documentation.",
+  },
+];
+
+function jourDecale(depart: Date, jours: number): Date {
+  const valeur = new Date(depart);
+  valeur.setDate(valeur.getDate() + jours);
+
+  return valeur;
+}
+
+export async function creerRoadmapType(
+  _etat: EtatFormulaire,
+  donnees: FormData,
+): Promise<EtatFormulaire> {
+  const clientId = texte(donnees, "clientId");
+  const dateDebut = texte(donnees, "dateDebutIso");
+
+  if (!clientId) {
+    return { erreurs: { general: "Fiche client introuvable." } };
+  }
+
+  if (!dateDebut) {
+    return { erreurs: { dateDebut: "Indiquez la date de démarrage." } };
+  }
+
+  const depart = new Date(dateDebut);
+
+  if (Number.isNaN(depart.getTime())) {
+    return { erreurs: { dateDebut: "Cette date n'est pas valide." } };
+  }
+
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, roadmapPhases: { select: { id: true } } },
+  });
+
+  if (!client) {
+    return { erreurs: { general: "Fiche client introuvable." } };
+  }
+
+  if (client.roadmapPhases.length > 0) {
+    return {
+      erreurs: {
+        general:
+          "Une feuille de route existe déjà pour ce client. Modifiez ses phases plutôt que d'en créer une seconde.",
+      },
+    };
+  }
+
+  await prisma.roadmapPhase.createMany({
+    data: PHASES_TYPE.map((phase) => ({
+      clientId: client.id,
+      nom: phase.nom,
+      dateDebut: jourDecale(depart, phase.debutJours),
+      dateFin: jourDecale(depart, phase.finJours),
+      description: phase.description,
+      statut: "A_VENIR" as const,
+    })),
+  });
+
+  rafraichir(client.id);
+
+  return {
+    erreurs: {},
+    succes: "Feuille de route créée, trois phases à ajuster si besoin.",
+  };
+}
+
+export async function mettreAJourPhase(
+  _etat: EtatFormulaire,
+  donnees: FormData,
+): Promise<EtatFormulaire> {
+  const phaseId = texte(donnees, "phaseId");
+  const nom = texte(donnees, "nom");
+  const dateDebut = texte(donnees, "dateDebutIso");
+  const dateFin = texte(donnees, "dateFinIso");
+  const description = texte(donnees, "description");
+  const statut = texte(donnees, "statut");
+
+  if (!phaseId) {
+    return { erreurs: { general: "Phase introuvable." } };
+  }
+
+  const erreurs: Record<string, string> = {};
+
+  if (!nom) {
+    erreurs.nom = "Le nom de la phase est obligatoire.";
+  }
+
+  if (!dateDebut) {
+    erreurs.dateDebut = "La date de début est obligatoire.";
+  }
+
+  if (!dateFin) {
+    erreurs.dateFin = "La date de fin est obligatoire.";
+  }
+
+  if (dateDebut && dateFin && new Date(dateFin) < new Date(dateDebut)) {
+    erreurs.dateFin = "La fin ne peut pas précéder le début.";
+  }
+
+  const statutsValides = ["A_VENIR", "EN_COURS", "TERMINE"];
+
+  if (!statutsValides.includes(statut)) {
+    erreurs.statut = "Statut inconnu.";
+  }
+
+  if (Object.keys(erreurs).length > 0) {
+    return { erreurs };
+  }
+
+  const phase = await prisma.roadmapPhase.findUnique({
+    where: { id: phaseId },
+    select: { id: true, clientId: true },
+  });
+
+  if (!phase) {
+    return { erreurs: { general: "Phase introuvable." } };
+  }
+
+  await prisma.roadmapPhase.update({
+    where: { id: phase.id },
+    data: {
+      nom,
+      dateDebut: new Date(dateDebut),
+      dateFin: new Date(dateFin),
+      description: description || null,
+      statut: statut as "A_VENIR" | "EN_COURS" | "TERMINE",
+    },
+  });
+
+  rafraichir(phase.clientId);
+
+  return { erreurs: {}, succes: "Phase mise à jour." };
+}

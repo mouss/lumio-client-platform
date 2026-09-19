@@ -46,6 +46,19 @@ export function formatDateLongue(valeur: Date | null | undefined): string {
 }
 
 /*
+  Valeur a mettre dans un champ date HTML, au format attendu AAAA-MM-JJ.
+  Le format en-CA rend exactement cette forme, et le fuseau de Paris evite qu'une date
+  saisie en France soit relue comme la veille par un serveur en UTC.
+*/
+const FORMATEUR_VALEUR_DATE = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Paris",
+});
+
+export function valeurChampDate(valeur: Date): string {
+  return FORMATEUR_VALEUR_DATE.format(valeur);
+}
+
+/*
   Nom de fichier sur et lisible, construit depuis le nom de l'entreprise.
   Les accents et les espaces sont retires : un nom de fichier telecharge peut traverser
   des systemes qui ne les gerent pas, et le nom d'origine reste affiche dans l'interface.

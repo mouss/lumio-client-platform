@@ -8,7 +8,7 @@ Nom du paquet npm : `lumio-onboarding-hermes`.
 
 ## État réel
 
-Au 2026-09-19 : le cycle va de la fiche client au questionnaire d'onboarding rempli par le client signé, avec de vrais emails. La proposition et le questionnaire sont en ligne, l'espace client reste à construire.
+Au 2026-09-19 : le cycle couvre tout l'onboarding côté agence, du premier contact à la feuille de route préparée. La page de proposition, le questionnaire, le PDF et les emails sont en ligne, l'espace client reste à construire.
 
 Vérifié réellement :
 
@@ -30,8 +30,10 @@ Vérifié réellement :
 - Les réponses remontent sur la fiche client dans l'admin, accès techniques compris.
 - Les deux emails partent réellement, vérifiés avec un vrai compte le 2026-09-19 : l'email de bienvenue à l'acceptation (le client passe alors à `QUESTIONNAIRE_ENVOYE`, ce qui prouve la branche de succès) et l'envoi de l'offre depuis la fiche client, avec la restitution en PDF en pièce jointe.
 - Le PDF de restitution se télécharge et se rend correctement, vérifié en le convertissant en image : logo en en-tête, filet et puces bleus, encart d'impact, pied de page. Un token inconnu renvoie `404`, une fiche sans restitution aussi.
+- L'analyse interne s'enregistre et se marque faite en deux temps. Enregistrer ne touche pas au statut du client ; marquer fait passe le client à `ANALYSE_FAITE` et son questionnaire en lecture seule, l'API refusant alors toute modification en `409`. Le marquage est refusé sans analyse, avec un message explicite.
+- La feuille de route type crée les trois phases du guide d'un coup, à 5, 10 et 5 jours de la date de démarrage, puis chaque phase s'ajuste. Une date de fin antérieure au début est refusée.
 
-N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, emails de relance et de suivi, analyse interne, feuille de route, suite de tests automatisée.
+N'existe pas encore : page publique `/espace/[token]`, écrans des 6 routes API métier, appel de lancement, créneaux de communication, emails de relance et de suivi, suite de tests automatisée.
 
 ## Arborescence
 
@@ -197,6 +199,25 @@ La question des accès techniques est une liste à cocher (CRM, email, API, outi
 Ouverture : le questionnaire est accessible aux statuts `OFFRE_ACCEPTEE`, `QUESTIONNAIRE_ENVOYE` et `QUESTIONNAIRE_COMPLETE`, c'est-à-dire dès l'acceptation même si l'email d'annonce n'est pas parti. Un client qui n'a pas encore validé voit un message qui le dit, et l'API refuse en `409`. Un client déjà passé à l'analyse interne le voit en lecture seule : les réponses servent de base à l'appel de lancement, elles ne doivent plus changer après avoir été lues.
 
 Un renvoi met à jour les réponses et laisse `completedAt` à sa valeur d'origine, pour ne pas fausser la date de première réception.
+
+## Analyse interne et feuille de route
+
+Étapes 3 et 5 du guide d'onboarding, côté agence. Aucune des deux n'est visible par le client.
+
+**Analyse interne** : quatre champs, ceux que le guide impose pour arriver à l'appel de lancement sans découvrir le dossier en direct (problème principal, solution IA proposée, quick wins visibles, points de vigilance). Rien de ce qui est saisi là n'est montré au client, à la différence de la restitution.
+
+Deux temps volontairement séparés :
+
+| Action | Effet sur le client |
+| --- | --- |
+| Enregistrer l'analyse | aucun, le statut ne bouge pas |
+| Marquer l'analyse comme faite | statut `ANALYSE_FAITE`, questionnaire en lecture seule |
+
+La séparation évite qu'une analyse en cours d'écriture verrouille le questionnaire par surprise. Le marquage est refusé tant que l'analyse n'existe pas, avec un message qui le dit.
+
+**Feuille de route** : le guide impose trois phases, diagnostic et setup, build et implémentation, stabilisation et livraison, sur l'exemple d'un projet de 20 jours. L'application les crée d'un coup à partir d'une date de démarrage, à 5, 10 et 5 jours, puis chaque phase s'ajuste (nom, dates, statut, description). Une seconde feuille de route est refusée sur un client qui en a déjà une, et une date de fin antérieure au début est refusée.
+
+Les dates des champs sont converties en ISO 8601 dans le navigateur, dans un champ caché. Un champ date renvoie une date sans fuseau : la convertir côté client évite qu'un serveur en UTC décale tout d'un jour.
 
 ## PDF de restitution `/api/offres/[token]/pdf`
 
